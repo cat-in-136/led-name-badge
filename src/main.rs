@@ -15,6 +15,8 @@ const BADGE_PID: u16 = 0x5020;
 pub enum BadgeError {
     /// Badge Not Found i.e. the LED Badge is not connected to the PC.
     BadgeNotFound,
+    /// Multiple Badge Found
+    MultipleBadgeFound,
     /// IO Error.
     Io(HidError),
 }
@@ -25,6 +27,7 @@ impl fmt::Display for BadgeError {
 
         match self {
             BadgeNotFound => f.write_str("Badge Not Found"),
+            MultipleBadgeFound => f.write_str("Multiple Badge Found"),
             Io(_error) => f.write_str("IO Error"),
         }
     }
@@ -51,7 +54,7 @@ impl Badge {
         if num_badge == 0 {
             return Err(BadgeError::BadgeNotFound);
         } else if num_badge > 1 {
-            return Err(BadgeError::BadgeNotFound); // TODO change error messager.
+            return Err(BadgeError::MultipleBadgeFound);
         }
 
         let device = api.open(BADGE_VID, BADGE_PID)?;
