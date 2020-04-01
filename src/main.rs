@@ -1,7 +1,8 @@
 extern crate hidapi;
 
+use std::error::Error;
 use std::fmt;
-use std::fmt::Debug;
+use std::fmt::{Debug, Write};
 use std::process::exit;
 
 use hidapi::{HidApi, HidDevice, HidError};
@@ -17,6 +18,8 @@ pub enum BadgeError {
     BadgeNotFound,
     /// Multiple Badge Found
     MultipleBadgeFound,
+    /// Could not open device
+    CouldNotOpenDevice(HidError),
     /// IO Error.
     Io(HidError),
 }
@@ -28,6 +31,9 @@ impl fmt::Display for BadgeError {
         match self {
             BadgeNotFound => f.write_str("Badge Not Found"),
             MultipleBadgeFound => f.write_str("Multiple Badge Found"),
+            CouldNotOpenDevice(error) => {
+                f.write_str(format!("Could not open device: {}", error.description()).as_str())
+            }
             Io(_error) => f.write_str("IO Error"),
         }
     }
@@ -57,7 +63,9 @@ impl Badge {
             _ => Err(BadgeError::MultipleBadgeFound),
         }?;
 
-        let device = api.open(BADGE_VID, BADGE_PID)?;
+        let device = api
+            .open(BADGE_VID, BADGE_PID)
+            .map_err(|e| BadgeError::CouldNotOpenDevice(e))?;
 
         Ok(Badge { device })
     }
