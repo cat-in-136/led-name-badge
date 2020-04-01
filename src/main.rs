@@ -47,15 +47,15 @@ impl Badge {
     fn new() -> Result<Self, BadgeError> {
         let api = HidApi::new()?;
 
-        let num_badge = api
+        match api
             .device_list()
             .filter(|info| info.vendor_id() == BADGE_VID && info.product_id() == BADGE_PID)
-            .count();
-        if num_badge == 0 {
-            return Err(BadgeError::BadgeNotFound);
-        } else if num_badge > 1 {
-            return Err(BadgeError::MultipleBadgeFound);
-        }
+            .count()
+        {
+            0 => Err(BadgeError::BadgeNotFound),
+            1 => Ok(()),
+            _ => Err(BadgeError::MultipleBadgeFound),
+        }?;
 
         let device = api.open(BADGE_VID, BADGE_PID)?;
 
