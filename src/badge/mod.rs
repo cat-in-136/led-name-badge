@@ -225,6 +225,11 @@ impl Badge {
         }
     }
 
+    /// Set brightness
+    pub fn set_brightness(&mut self, br: BadgeBrightness) {
+        self.header.brightness = (br as u8) << 4;
+    }
+
     /// Send the context information to the device
     ///
     /// ### Errors

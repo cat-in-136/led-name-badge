@@ -1,6 +1,6 @@
 extern crate hidapi;
 
-use crate::badge::{Badge, BADGE_SPEED_MAX, BadgeEffect, BadgeError};
+use crate::badge::{Badge, BADGE_SPEED_MAX, BadgeBrightness, BadgeEffect, BadgeError};
 
 mod badge;
 
@@ -10,6 +10,8 @@ fn main() {
 
         badge.add_text_message(0, "Game")?;
         badge.set_effects(0, BadgeEffect::Left, BADGE_SPEED_MAX, false, false)?;
+
+        badge.set_brightness(BadgeBrightness::B25);
 
         badge.send()?;
         Ok(0)
