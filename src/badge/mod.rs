@@ -171,7 +171,7 @@ pub struct Badge {
 impl Badge {
     /// Open a LED badge device
     ///
-    /// ### Errors
+    /// # Errors
     ///
     /// If failed to open a LED badge, then an error is returned.
     pub fn new() -> Result<Self, BadgeError> {
@@ -199,7 +199,12 @@ impl Badge {
     }
 
     /// Add text messages
-    pub fn add_text_message(&mut self, msg_num: usize, msg: &str, font_names: &[&str]) -> Result<(), BadgeError> {
+    pub fn add_text_message(
+        &mut self,
+        msg_num: usize,
+        msg: &str,
+        font_names: &[&str],
+    ) -> Result<(), BadgeError> {
         if msg_num >= N_MESSAGES {
             Err(BadgeError::MessageNumberOutOfRange(msg_num))
         } else if msg.len() == 0 {
@@ -242,7 +247,7 @@ impl Badge {
 
     /// Send the context information to the device
     ///
-    /// ### Errors
+    /// # Errors
     ///
     /// If failed to write the data to the device, then an error is returned.
     pub fn send(&mut self) -> Result<(), BadgeError> {

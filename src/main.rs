@@ -4,6 +4,7 @@ use crate::badge::{Badge, BADGE_SPEED_MAX, BadgeBrightness, BadgeEffect, BadgeEr
 
 mod badge;
 
+/// CLI entry point
 fn main() {
     let error_label = (|| -> Result<i32, BadgeError> {
         let mut badge = Badge::new()?;
@@ -16,9 +17,9 @@ fn main() {
         badge.send()?;
         Ok(0)
     })()
-        .unwrap_or_else(|err| {
-            eprintln!("Error: {:?}", err);
-            1
-        });
+    .unwrap_or_else(|err| {
+        eprintln!("Error: {:?}", err);
+        1
+    });
     std::process::exit(error_label);
 }
