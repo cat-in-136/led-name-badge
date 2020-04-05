@@ -8,7 +8,7 @@ fn main() {
     let error_label = (|| -> Result<i32, BadgeError> {
         let mut badge = Badge::new()?;
 
-        badge.add_text_message(0, "Game")?;
+        badge.add_text_message(0, "Game", &["Liberation Sans", "Arial"])?;
         badge.set_effects(0, BadgeEffect::Left, BADGE_SPEED_MAX, false, false)?;
 
         badge.set_brightness(BadgeBrightness::B25);

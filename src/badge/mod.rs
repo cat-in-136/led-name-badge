@@ -5,7 +5,12 @@ use std::fmt;
 use std::fmt::Debug;
 use std::mem;
 
+use font_kit::error::{FontLoadingError, GlyphLoadingError, SelectionError};
 use hidapi::{HidApi, HidDevice, HidError};
+
+use crate::badge::text::{find_font, render_text};
+
+mod text;
 
 /// Vendor ID of the LED Badge
 const BADGE_VID: u16 = 0x0416;
@@ -27,6 +32,10 @@ pub enum BadgeError {
     WrongSpeed,
     /// IO Error.
     Io(HidError),
+    /// Font Not Found
+    FontNotFound(SelectionError),
+    /// Font Loading Error
+    FontLoading(FontLoadingError),
 }
 
 impl fmt::Display for BadgeError {
@@ -44,6 +53,10 @@ impl fmt::Display for BadgeError {
             }
             WrongSpeed => f.write_str("Wrong speed value"),
             Io(_error) => f.write_str("IO Error"),
+            FontNotFound(error) => {
+                f.write_str(format!("Font Not Found: {}", error.description()).as_str())
+            }
+            FontLoading(_error) => f.write_str("Failed to load font"),
         }
     }
 }
@@ -186,18 +199,15 @@ impl Badge {
     }
 
     /// Add text messages
-    pub fn add_text_message(&mut self, msg_num: usize, msg: &str) -> Result<(), BadgeError> {
+    pub fn add_text_message(&mut self, msg_num: usize, msg: &str, font_names: &[&str]) -> Result<(), BadgeError> {
         if msg_num >= N_MESSAGES {
             Err(BadgeError::MessageNumberOutOfRange(msg_num))
         } else if msg.len() == 0 {
             Ok(()) // Do nothing
         } else {
-            self.messages[msg_num].data.clear();
-
-            // TODO render text
-            self.messages[msg_num].data.resize(BADGE_MSG_FONT_HEIGHT, 0);
-            self.messages[msg_num].data[0] = 0xFF;
-
+            let font = find_font(font_names)?;
+            let mut pixel_data = render_text(msg, 11, &font);
+            mem::swap(&mut self.messages[msg_num].data, &mut pixel_data);
             Ok(())
         }
     }
