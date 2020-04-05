@@ -15,8 +15,13 @@ use font_kit::source::SystemSource;
 
 use crate::badge::BadgeError;
 
+/// A continence method to find font and returns a Font.
+///
+/// # Errors
+///
+/// Return Err if no font is matched to given font_names or if failed to load the font.
 pub(crate) fn find_font(font_names: &[&str]) -> Result<Font, BadgeError> {
-    let family_names = font_names.iter().map(|v| String::from(*v));
+    let family_names = font_names.iter().map(|&v| String::from(v));
     let family_names = Vec::from_iter(family_names.map(|v| FamilyName::Title(v)));
     let font = SystemSource::new()
         .select_best_match(&family_names.as_slice(), &Properties::new())
@@ -52,6 +57,7 @@ fn test_find_font() {
     assert!(find_font(&["NOT-EXIST-FONT-NAME"]).is_err());
 }
 
+/// Convert the canvas data into the led badge message data.
 fn canvas2vec(canvas: &Canvas) -> Vec<u8> {
     let canvas_size = canvas.size;
     let data_width = (canvas_size.width as usize + 7) / 8;
@@ -106,6 +112,7 @@ fn test_canvas2vec() {
     assert_eq!(canvas2vec(&canvas), vec);
 }
 
+/// Render text with given font configuration and return the led badge message data.
 pub(crate) fn render_text(text: &str, font_size: u32, font: &Font) -> Vec<u8> {
     let width = text
         .chars()
