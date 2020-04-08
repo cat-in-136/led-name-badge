@@ -3,9 +3,15 @@ extern crate hidapi;
 use crate::badge::{Badge, BADGE_SPEED_MAX, BadgeBrightness, BadgeEffect, BadgeError};
 
 mod badge;
+mod arg_parser;
+
+fn parse_arguments() {
+}
 
 /// CLI entry point
 fn main() {
+    parse_arguments();
+
     let error_label = (|| -> Result<i32, BadgeError> {
         let mut badge = Badge::new()?;
 
