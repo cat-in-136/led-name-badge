@@ -44,54 +44,65 @@ pub(crate) enum MatchedValue {
     Value { value: String },
 }
 
-/// Parse CLI arguments with options.
-pub(crate) fn parse_arguments<T: ToString>(
-    options: &[Arg],
-    arguments: &[T],
-) -> Box<[MatchedValue]> {
-    let mut values = Vec::with_capacity(options.len());
+pub(crate) struct App<'a> {
+    options: Box<&'a [Arg]>,
+}
 
-    let mut arguments_iter = arguments.iter();
-    while let Some(argument) = arguments_iter.next() {
-        let argument = argument.to_string();
-        if let Some(arg) = options
-            .iter()
-            .find(|&opt| opt.is_matched(argument.as_str()))
-        {
-            let name = arg.name;
-
-            if arg.value_name.is_some() {
-                // if this option takes a value
-                if let Some(val) = arguments_iter.next() {
-                    values.push(MatchedValue::Arg {
-                        name,
-                        value: val.to_string(),
-                    });
-                } else {
-                    values.push(MatchedValue::ArgValueMissing { name });
-                }
-            } else {
-                // if this option does not take a value
-                values.push(MatchedValue::FlagArg { name });
-            }
-        } else if argument.starts_with("-") {
-            values.push(MatchedValue::ParseError { argument });
-        } else {
-            values.push(MatchedValue::Value { value: argument });
+impl App<'_> {
+    pub(crate) fn new(options: &[Arg]) -> App {
+        App {
+            options: Box::new(options),
         }
     }
 
-    values.into_boxed_slice()
+    /// Parse CLI arguments with options.
+    pub(crate) fn parse<T: ToString>(&self, arguments: &[T]) -> Box<[MatchedValue]> {
+        let mut values = Vec::with_capacity(self.options.len());
+
+        let mut arguments_iter = arguments.iter();
+        while let Some(argument) = arguments_iter.next() {
+            let argument = argument.to_string();
+            if let Some(arg) = self
+                .options
+                .iter()
+                .find(|&opt| opt.is_matched(argument.as_str()))
+            {
+                let name = arg.name;
+
+                if arg.value_name.is_some() {
+                    // if this option takes a value
+                    if let Some(val) = arguments_iter.next() {
+                        values.push(MatchedValue::Arg {
+                            name,
+                            value: val.to_string(),
+                        });
+                    } else {
+                        values.push(MatchedValue::ArgValueMissing { name });
+                    }
+                } else {
+                    // if this option does not take a value
+                    values.push(MatchedValue::FlagArg { name });
+                }
+            } else if argument.starts_with("-") {
+                values.push(MatchedValue::ParseError { argument });
+            } else {
+                values.push(MatchedValue::Value { value: argument });
+            }
+        }
+
+        values.into_boxed_slice()
+    }
 }
 
 #[test]
-fn test_parse_arguments() {
+fn test_app_parse() {
     let options = vec![
         Arg::new('a', None, "option a".to_string()),
         Arg::new('b', Some("VAL".to_string()), "option b".to_string()),
     ];
+    let app = App::new(&options);
     let arguments = vec!["-a", "-b", "B1", "-b", "B2", "-a", "VAL"];
-    let matches = parse_arguments(&options, &arguments);
+    let matches = app.parse(&arguments);
     assert_eq!(matches.len(), 5);
     assert_eq!(matches[0], MatchedValue::FlagArg { name: 'a' });
     assert_eq!(
@@ -117,7 +128,7 @@ fn test_parse_arguments() {
     );
 
     let arguments = vec!["-c", "-a", "-b"];
-    let matches = parse_arguments(&options, &arguments);
+    let matches = app.parse(&arguments);
     assert_eq!(matches.len(), 3);
     assert_eq!(
         matches[0],
@@ -129,7 +140,7 @@ fn test_parse_arguments() {
     assert_eq!(matches[2], MatchedValue::ArgValueMissing { name: 'b' });
 
     let arguments = vec!["-b", "-a"];
-    let matches = parse_arguments(&options, &arguments);
+    let matches = app.parse(&arguments);
     assert_eq!(matches.len(), 1);
     assert_eq!(
         matches[0],
