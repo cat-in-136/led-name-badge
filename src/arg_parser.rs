@@ -20,8 +20,7 @@ impl Arg {
     // Check if arg is matched to this argument option
     fn is_matched(&self, arg: &str) -> bool {
         if arg.len() == 2 {
-            let chars = arg.chars().collect::<Vec<char>>();
-            (chars[0] == '-') && (chars[1] == self.name)
+            (arg.chars().nth(0) == Some('-')) && (arg.chars().nth(1) == Some(self.name))
         } else {
             false
         }
@@ -62,7 +61,9 @@ impl App<'_> {
         let mut arguments_iter = arguments.iter();
         while let Some(argument) = arguments_iter.next() {
             let argument = argument.to_string();
-            if let Some(arg) = self
+            if !argument.starts_with("-") {
+                values.push(MatchedValue::Value { value: argument });
+            } else if let Some(arg) = self
                 .options
                 .iter()
                 .find(|&opt| opt.is_matched(argument.as_str()))
@@ -83,10 +84,8 @@ impl App<'_> {
                     // if this option does not take a value
                     values.push(MatchedValue::FlagArg { name });
                 }
-            } else if argument.starts_with("-") {
-                values.push(MatchedValue::ParseError { argument });
             } else {
-                values.push(MatchedValue::Value { value: argument });
+                values.push(MatchedValue::ParseError { argument });
             }
         }
 
