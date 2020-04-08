@@ -10,4 +10,3 @@ edition = "2018"
 hidapi = "1.2.1"
 font-kit = "0.5.0"
 euclid = "0.20.10"
-

@@ -41,16 +41,20 @@ pub(crate) enum MatchedValue {
     Arg { name: char, value: String },
     ArgValueMissing { name: char },
     ParseError { argument: String },
+    Value { value: String },
 }
 
-pub(crate) fn parse_arguments<T: ToString>(options: &[Arg], arguments: &[T]) -> Box<[MatchedValue]> {
-    let mut values = Vec::<MatchedValue>::with_capacity(options.len());
+/// Parse CLI arguments with options.
+pub(crate) fn parse_arguments<T: ToString>(
+    options: &[Arg],
+    arguments: &[T],
+) -> Box<[MatchedValue]> {
+    let mut values = Vec::with_capacity(options.len());
 
     let mut arguments_iter = arguments.iter();
     while let Some(argument) = arguments_iter.next() {
         let argument = argument.to_string();
-        if let Some(arg) =
-            options
+        if let Some(arg) = options
             .iter()
             .find(|&opt| opt.is_matched(argument.as_str()))
         {
@@ -59,7 +63,10 @@ pub(crate) fn parse_arguments<T: ToString>(options: &[Arg], arguments: &[T]) -> 
             if arg.value_name.is_some() {
                 // if this option takes a value
                 if let Some(val) = arguments_iter.next() {
-                    values.push(MatchedValue::Arg { name, value: val.to_string() });
+                    values.push(MatchedValue::Arg {
+                        name,
+                        value: val.to_string(),
+                    });
                 } else {
                     values.push(MatchedValue::ArgValueMissing { name });
                 }
@@ -67,8 +74,10 @@ pub(crate) fn parse_arguments<T: ToString>(options: &[Arg], arguments: &[T]) -> 
                 // if this option does not take a value
                 values.push(MatchedValue::FlagArg { name });
             }
-        } else {
+        } else if argument.starts_with("-") {
             values.push(MatchedValue::ParseError { argument });
+        } else {
+            values.push(MatchedValue::Value { value: argument });
         }
     }
 
@@ -81,18 +90,52 @@ fn test_parse_arguments() {
         Arg::new('a', None, "option a".to_string()),
         Arg::new('b', Some("VAL".to_string()), "option b".to_string()),
     ];
-    let arguments = vec!["-a", "-b", "B1", "-b", "B2", "-a"];
+    let arguments = vec!["-a", "-b", "B1", "-b", "B2", "-a", "VAL"];
     let matches = parse_arguments(&options, &arguments);
-    assert_eq!(matches.len(), 4);
-    assert_eq!(matches[0], MatchedValue::FlagArg{name : 'a'});
-    assert_eq!(matches[1], MatchedValue::Arg{name : 'b', value: "B1".to_string()});
-    assert_eq!(matches[2], MatchedValue::Arg{name : 'b', value: "B2".to_string()});
-    assert_eq!(matches[3], MatchedValue::FlagArg{name : 'a'});
+    assert_eq!(matches.len(), 5);
+    assert_eq!(matches[0], MatchedValue::FlagArg { name: 'a' });
+    assert_eq!(
+        matches[1],
+        MatchedValue::Arg {
+            name: 'b',
+            value: "B1".to_string()
+        }
+    );
+    assert_eq!(
+        matches[2],
+        MatchedValue::Arg {
+            name: 'b',
+            value: "B2".to_string()
+        }
+    );
+    assert_eq!(matches[3], MatchedValue::FlagArg { name: 'a' });
+    assert_eq!(
+        matches[4],
+        MatchedValue::Value {
+            value: "VAL".to_string()
+        }
+    );
 
-    let arguments = vec!["-a", "-b"];
+    let arguments = vec!["-c", "-a", "-b"];
     let matches = parse_arguments(&options, &arguments);
-    assert_eq!(matches.len(), 2);
-    assert_eq!(matches[0], MatchedValue::FlagArg{name : 'a'});
-    assert_eq!(matches[1], MatchedValue::ArgValueMissing {name: 'b'});
+    assert_eq!(matches.len(), 3);
+    assert_eq!(
+        matches[0],
+        MatchedValue::ParseError {
+            argument: "-c".to_string()
+        }
+    );
+    assert_eq!(matches[1], MatchedValue::FlagArg { name: 'a' });
+    assert_eq!(matches[2], MatchedValue::ArgValueMissing { name: 'b' });
 
+    let arguments = vec!["-b", "-a"];
+    let matches = parse_arguments(&options, &arguments);
+    assert_eq!(matches.len(), 1);
+    assert_eq!(
+        matches[0],
+        MatchedValue::Arg {
+            name: 'b',
+            value: "-a".to_string()
+        }
+    ); // this is spec!
 }
