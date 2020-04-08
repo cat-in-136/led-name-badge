@@ -34,13 +34,19 @@ fn test_arg_is_matched() {
     assert_eq!(arg.is_matched("-b"), false);
 }
 
+/// Argument value
 #[derive(Debug, PartialEq)]
-pub(crate) enum MatchedValue {
+pub(crate) enum ArgValue {
     FlagArg { name: char },
     Arg { name: char, value: String },
+    Value { value: String },
+}
+
+/// Parse error
+#[derive(Debug, PartialEq)]
+pub(crate) enum ArgParseError {
     ArgValueMissing { name: char },
     ParseError { argument: String },
-    Value { value: String },
 }
 
 pub(crate) struct App<'a> {
@@ -55,14 +61,17 @@ impl App<'_> {
     }
 
     /// Parse CLI arguments with options.
-    pub(crate) fn parse<T: ToString>(&self, arguments: &[T]) -> Box<[MatchedValue]> {
+    pub(crate) fn parse<T: ToString>(
+        &self,
+        arguments: &[T],
+    ) -> Result<Box<[ArgValue]>, ArgParseError> {
         let mut values = Vec::with_capacity(self.options.len());
 
         let mut arguments_iter = arguments.iter();
         while let Some(argument) = arguments_iter.next() {
             let argument = argument.to_string();
             if !argument.starts_with("-") {
-                values.push(MatchedValue::Value { value: argument });
+                values.push(ArgValue::Value { value: argument });
             } else if let Some(arg) = self
                 .options
                 .iter()
@@ -73,23 +82,23 @@ impl App<'_> {
                 if arg.value_name.is_some() {
                     // if this option takes a value
                     if let Some(val) = arguments_iter.next() {
-                        values.push(MatchedValue::Arg {
+                        values.push(ArgValue::Arg {
                             name,
                             value: val.to_string(),
                         });
                     } else {
-                        values.push(MatchedValue::ArgValueMissing { name });
+                        return Err(ArgParseError::ArgValueMissing { name });
                     }
                 } else {
                     // if this option does not take a value
-                    values.push(MatchedValue::FlagArg { name });
+                    values.push(ArgValue::FlagArg { name });
                 }
             } else {
-                values.push(MatchedValue::ParseError { argument });
+                return Err(ArgParseError::ParseError { argument });
             }
         }
 
-        values.into_boxed_slice()
+        Ok(values.into_boxed_slice())
     }
 }
 
@@ -101,49 +110,50 @@ fn test_app_parse() {
     ];
     let app = App::new(&options);
     let arguments = vec!["-a", "-b", "B1", "-b", "B2", "-a", "VAL"];
-    let matches = app.parse(&arguments);
+    let matches = app.parse(&arguments).unwrap();
     assert_eq!(matches.len(), 5);
-    assert_eq!(matches[0], MatchedValue::FlagArg { name: 'a' });
+    assert_eq!(matches[0], ArgValue::FlagArg { name: 'a' });
     assert_eq!(
         matches[1],
-        MatchedValue::Arg {
+        ArgValue::Arg {
             name: 'b',
             value: "B1".to_string()
         }
     );
     assert_eq!(
         matches[2],
-        MatchedValue::Arg {
+        ArgValue::Arg {
             name: 'b',
             value: "B2".to_string()
         }
     );
-    assert_eq!(matches[3], MatchedValue::FlagArg { name: 'a' });
+    assert_eq!(matches[3], ArgValue::FlagArg { name: 'a' });
     assert_eq!(
         matches[4],
-        MatchedValue::Value {
+        ArgValue::Value {
             value: "VAL".to_string()
         }
     );
 
     let arguments = vec!["-c", "-a", "-b"];
     let matches = app.parse(&arguments);
-    assert_eq!(matches.len(), 3);
     assert_eq!(
-        matches[0],
-        MatchedValue::ParseError {
+        matches,
+        Err(ArgParseError::ParseError {
             argument: "-c".to_string()
-        }
+        })
     );
-    assert_eq!(matches[1], MatchedValue::FlagArg { name: 'a' });
-    assert_eq!(matches[2], MatchedValue::ArgValueMissing { name: 'b' });
+
+    let arguments = vec!["-a", "-b"];
+    let matches = app.parse(&arguments);
+    assert_eq!(matches, Err(ArgParseError::ArgValueMissing { name: 'b' }));
 
     let arguments = vec!["-b", "-a"];
-    let matches = app.parse(&arguments);
+    let matches = app.parse(&arguments).unwrap();
     assert_eq!(matches.len(), 1);
     assert_eq!(
         matches[0],
-        MatchedValue::Arg {
+        ArgValue::Arg {
             name: 'b',
             value: "-a".to_string()
         }
