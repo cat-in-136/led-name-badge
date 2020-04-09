@@ -1,4 +1,6 @@
+use core::fmt;
 use std::env::Args;
+use std::fmt::{Error, Formatter};
 
 // argument option
 #[derive(Debug, Clone)]
@@ -47,6 +49,20 @@ pub(crate) enum ArgValue {
 pub(crate) enum ArgParseError {
     ArgValueMissing { name: char },
     ParseError { argument: String },
+}
+
+impl fmt::Display for ArgParseError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        use ArgParseError::*;
+        match self {
+            ArgValueMissing { name } => {
+                f.write_str(format!("\'-{}\': parameter value missing", name).as_str())
+            }
+            ParseError { argument } => {
+                f.write_str(format!("\'{}\': wrong argument", argument).as_str())
+            }
+        }
+    }
 }
 
 pub(crate) struct App<'a> {
@@ -99,6 +115,26 @@ impl App<'_> {
         }
 
         Ok(values.into_boxed_slice())
+    }
+
+    /// get option message
+    pub(crate) fn help_option_message(&self) -> String {
+        let mut text = String::new();
+
+        for option in self.options.iter() {
+            let left = if let Some(t) = &option.value_name {
+                format!("    -{} {}", option.name, t)
+            } else {
+                format!("    -{}", option.name)
+            };
+            text.push_str(left.as_str());
+            for _ in 0..(30 - left.len()).max(1) {
+                text.push(' ');
+            }
+            text.push_str(option.help.as_str());
+            text.push('\n');
+        }
+        text
     }
 }
 
