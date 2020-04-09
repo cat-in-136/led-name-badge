@@ -1,5 +1,7 @@
 extern crate hidapi;
 
+use core::fmt;
+use std::fmt::Formatter;
 use std::str::FromStr;
 
 use crate::arg_parser::{App, Arg, ArgParseError, ArgValue};
@@ -7,6 +9,35 @@ use crate::badge::{Badge, BADGE_SPEED_MAX, BadgeBrightness, BadgeEffect, BadgeEr
 
 mod arg_parser;
 mod badge;
+
+#[derive(Debug)]
+enum CliError {
+    ArgParseError(ArgParseError),
+    BadgeError(BadgeError),
+    CliError(String),
+}
+
+impl From<ArgParseError> for CliError {
+    fn from(e: ArgParseError) -> Self {
+        CliError::ArgParseError(e)
+    }
+}
+
+impl From<BadgeError> for CliError {
+    fn from(e: BadgeError) -> Self {
+        CliError::BadgeError(e)
+    }
+}
+
+impl fmt::Display for CliError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            CliError::ArgParseError(e) => e.fmt(f),
+            CliError::BadgeError(e) => e.fmt(f),
+            CliError::CliError(str) => f.write_str(str.as_str()),
+        }
+    }
+}
 
 fn parse_arguments() -> Result<Box<[ArgValue]>, ArgParseError> {
     let options = vec![
@@ -40,12 +71,9 @@ fn parse_arguments() -> Result<Box<[ArgValue]>, ArgParseError> {
 
 /// CLI entry point
 fn main() {
-    let option = parse_arguments().unwrap_or_else(|err| {
-        eprintln!("Error: {:?}", err);
-        std::process::exit(1);
-    });
+    (|| -> Result<i32, CliError> {
+        let option = parse_arguments()?;
 
-    (|| -> Result<i32, BadgeError> {
         let mut badge = Badge::new()?;
 
         let mut msg_number = 0usize;
@@ -53,7 +81,15 @@ fn main() {
         for v in option.iter() {
             use ArgValue::*;
             match v {
-                Arg { name: 'i', value } => msg_number = usize::from_str(value.as_str()).unwrap(), // TODO
+                Arg { name: 'i', value } => {
+                    msg_number = match usize::from_str(value.as_str()) {
+                        Ok(i) if (i <= 7) => Ok(i),
+                        _ => Err(CliError::CliError(format!(
+                            "'{}': wrong value. specify [0..7]",
+                            value
+                        ))),
+                    }?
+                }
                 Arg { name: 't', value } => {
                     badge.add_text_message(msg_number, &value, &["Liberation Sans", "Arial"])?;
                 }
@@ -69,7 +105,7 @@ fn main() {
         Ok(0)
     })()
     .unwrap_or_else(|err| {
-        eprintln!("Error: {:?}", err);
+        eprintln!("Error: {}", err);
         std::process::exit(1);
     });
 }
