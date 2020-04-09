@@ -1,6 +1,7 @@
 [package]
 name = "led-name-badge"
 version = "0.1.0"
+description = "USB LED name badge control tool"
 authors = ["@cat_in_136"]
 edition = "2018"
 
