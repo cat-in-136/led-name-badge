@@ -5,7 +5,7 @@ use std::fmt::Formatter;
 use std::str::FromStr;
 
 use crate::arg_parser::{App, Arg, ArgParseError, ArgValue};
-use crate::badge::{Badge, BADGE_SPEED_MAX, BadgeBrightness, BadgeEffect, BadgeError};
+use crate::badge::{Badge, BADGE_SPEED_RANGE, BadgeBrightness, BadgeEffect, BadgeError};
 
 mod arg_parser;
 mod badge;
@@ -82,7 +82,7 @@ fn main() {
         let mut badge = Badge::new()?;
 
         let mut msg_number = 0usize;
-        let mut msg_speed = 1u8;
+        let mut msg_speed = *BADGE_SPEED_RANGE.end();
 
         for v in option.iter() {
             use ArgValue::*;
@@ -101,7 +101,7 @@ fn main() {
                 }
                 Arg { name: 's', value } => {
                     msg_speed = match u8::from_str(value.as_str()) {
-                        Ok(i) if ((0 < i) && (i <= 8)) => Ok(i),
+                        Ok(i) if BADGE_SPEED_RANGE.contains(&i) => Ok(i),
                         _ => Err(CliError::CliError(format!(
                             "'{}': wrong value. specify [1..8]",
                             value

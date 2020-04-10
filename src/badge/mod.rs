@@ -4,6 +4,7 @@ use std::error::Error;
 use std::fmt;
 use std::fmt::Debug;
 use std::mem;
+use std::ops::RangeInclusive;
 
 use font_kit::error::{FontLoadingError, GlyphLoadingError, SelectionError};
 use hidapi::{HidApi, HidDevice, HidError};
@@ -141,10 +142,8 @@ pub enum BadgeBrightness {
     B25,
 }
 
-/// Maximum text animation speed
-pub const BADGE_SPEED_MAX: u8 = 8;
-/// Minimum text animation speed
-pub const BADGE_SPEED_MIN: u8 = 1;
+/// Value range of text animation speed
+pub const BADGE_SPEED_RANGE : RangeInclusive<u8> = 1..=8;
 
 /// Badge Protocol Header (first report to send)
 #[derive(Debug)]
@@ -228,7 +227,7 @@ impl Badge {
     ) -> Result<(), BadgeError> {
         if msg_num >= N_MESSAGES {
             Err(BadgeError::MessageNumberOutOfRange(msg_num))
-        } else if spd < BADGE_SPEED_MIN || BADGE_SPEED_MAX < spd {
+        } else if !BADGE_SPEED_RANGE.contains(&spd) {
             Err(BadgeError::WrongSpeed)
         } else {
             self.header.line_conf[msg_num] = (spd << 4) | (pat as u8);
