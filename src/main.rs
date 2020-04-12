@@ -119,6 +119,7 @@ fn main() {
                 }
                 Arg { name: 't', value } => {
                     badge.add_text_message(msg_number, &value, &["Liberation Sans", "Arial"])?;
+                    badge.set_effects(msg_number, msg_effect, msg_speed, false, false)?;
                 }
                 Arg { name: 's', value } => {
                     msg_speed = match u8::from_str(value.as_str()) {
@@ -154,8 +155,6 @@ fn main() {
                 _ => (),
             }
         }
-
-        badge.set_effects(0, msg_effect, msg_speed, false, false)?;
 
         badge.set_brightness(msg_brightness)?;
 
