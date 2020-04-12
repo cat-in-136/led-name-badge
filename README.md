@@ -8,6 +8,8 @@ This tool is a CLI tool to configure the USB name badge on Linux Desktop PC.
 A few such tools that can run on Linux Desktop PC are created and available on github,
 but my tool uses fonts on the PC to render text using freetype and font-config.
 
+![Rust](https://github.com/cat-in-136/led-name-badge/workflows/Rust/badge.svg)
+
 ## How to Build
 
 Dependencies:
