@@ -128,10 +128,16 @@ impl App<'_> {
                 format!("    -{}", option.name)
             };
             text.push_str(left.as_str());
-            for _ in 0..(30 - left.len()).max(1) {
+            let indent_offset = 30.max(left.len() + 1);
+            for _ in 0..(indent_offset - left.len()) {
                 text.push(' ');
             }
-            text.push_str(option.help.as_str());
+            text.push_str(
+                option
+                    .help
+                    .replace("\n", format!("\n{}", " ".repeat(indent_offset)).as_str())
+                    .as_str(),
+            );
             text.push('\n');
         }
         text

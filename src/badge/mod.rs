@@ -1,10 +1,11 @@
-extern crate hidapi;
-
+use std::any::Any;
+use std::convert::TryFrom;
 use std::error::Error;
 use std::fmt;
-use std::fmt::Debug;
+use std::fmt::{Debug, Display, Formatter};
 use std::mem;
 use std::ops::RangeInclusive;
+use std::str::FromStr;
 
 use font_kit::error::{FontLoadingError, GlyphLoadingError, SelectionError};
 use hidapi::{HidApi, HidDevice, HidError};
@@ -120,7 +121,7 @@ impl Default for BadgeHeader {
 }
 
 /// Message effect type
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Copy, Clone)]
 pub enum BadgeEffect {
     Left = 0,
     Right,
@@ -133,6 +134,80 @@ pub enum BadgeEffect {
     Laser,
 }
 
+impl BadgeEffect {
+    pub fn values() -> Vec<BadgeEffect> {
+        (0..)
+            .map(|v| BadgeEffect::try_from(v))
+            .take_while(|v| v.is_ok())
+            .map(|v| v.unwrap())
+            .collect::<Vec<BadgeEffect>>()
+    }
+}
+
+#[test]
+fn test_badge_effect_values() {
+    let values = BadgeEffect::values();
+    assert_eq!(values[0], BadgeEffect::Left);
+    assert_eq!(values[values.len() - 1], BadgeEffect::Laser);
+}
+
+impl fmt::Display for BadgeEffect {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.write_str(format!("{:?}", self).to_lowercase().as_str())
+    }
+}
+
+#[test]
+fn test_badge_effect_display() {
+    assert_eq!(BadgeEffect::Left.to_string(), String::from("left"));
+}
+
+impl TryFrom<u8> for BadgeEffect {
+    type Error = ();
+
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
+        if value <= (BadgeEffect::Laser as u8) {
+            Ok(unsafe { mem::transmute(value) })
+        } else {
+            Err(())
+        }
+    }
+}
+
+#[test]
+fn test_badge_effect_from_u8() {
+    assert_eq!(BadgeEffect::try_from(0).unwrap(), BadgeEffect::Left);
+    assert_eq!(
+        BadgeEffect::try_from(BadgeEffect::Down as u8).unwrap(),
+        BadgeEffect::Down
+    );
+    assert_eq!(
+        BadgeEffect::try_from(BadgeEffect::Laser as u8).unwrap(),
+        BadgeEffect::Laser
+    );
+    assert_eq!(
+        BadgeEffect::try_from((BadgeEffect::Laser as u8) + 1),
+        Err(())
+    );
+}
+
+impl FromStr for BadgeEffect {
+    type Err = ();
+
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        BadgeEffect::values()
+            .iter()
+            .find(|&&v| v.to_string().as_str() == value)
+            .map_or(Err(Self::Err::default()), |&v| Ok(v))
+    }
+}
+
+#[test]
+fn badge_effect_from_str() {
+    assert_eq!(BadgeEffect::from_str("left").unwrap(), BadgeEffect::Left);
+    assert_eq!(BadgeEffect::from_str("left2"), Err(()));
+}
+
 /// LED brightness
 #[derive(Debug, PartialEq)]
 pub enum BadgeBrightness {
@@ -143,7 +218,7 @@ pub enum BadgeBrightness {
 }
 
 /// Value range of text animation speed
-pub const BADGE_SPEED_RANGE : RangeInclusive<u8> = 1..=8;
+pub const BADGE_SPEED_RANGE: RangeInclusive<u8> = 1..=8;
 
 /// Badge Protocol Header (first report to send)
 #[derive(Debug)]

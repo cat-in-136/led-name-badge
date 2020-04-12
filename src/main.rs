@@ -52,8 +52,22 @@ fn parse_arguments() -> Result<Box<[ArgValue]>, ArgParseError> {
             Some("speed".to_string()),
             "Message speed [1..8]".to_string(),
         ),
+        Arg::new(
+            'e',
+            Some("effect".to_string()),
+            format!(
+                "Message effect\n[{}]",
+                BadgeEffect::values()
+                    .iter()
+                    .map(|&v| v.to_string())
+                    .collect::<Vec<_>>()
+                    .join(","),
+            )
+            .to_string(),
+        ),
         Arg::new('h', None, "show this help message".to_string()),
     ];
+
     let arguments = std::env::args().skip(1).collect::<Vec<String>>();
     let app = App::new(&options);
     let values = app.parse(&arguments)?;
@@ -83,6 +97,7 @@ fn main() {
 
         let mut msg_number = 0usize;
         let mut msg_speed = *BADGE_SPEED_RANGE.end();
+        let mut msg_effect = BadgeEffect::Left;
 
         for v in option.iter() {
             use ArgValue::*;
@@ -108,11 +123,24 @@ fn main() {
                         ))),
                     }?
                 }
+                Arg { name: 'e', value } => {
+                    msg_effect = BadgeEffect::from_str(value.as_str()).map_err(|_err| {
+                        CliError::CliError(format!(
+                            "'{}': wrong value. specify [{}]",
+                            value,
+                            BadgeEffect::values()
+                                .iter()
+                                .map(|&v| v.to_string())
+                                .collect::<Vec<_>>()
+                                .join(","),
+                        ))
+                    })?
+                }
                 _ => (),
             }
         }
 
-        badge.set_effects(0, BadgeEffect::Left, msg_speed, false, false)?;
+        badge.set_effects(0, msg_effect, msg_speed, false, false)?;
 
         badge.set_brightness(BadgeBrightness::B25);
 
