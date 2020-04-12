@@ -32,6 +32,8 @@ pub enum BadgeError {
     MessageNumberOutOfRange(usize),
     /// Wrong speed value
     WrongSpeed,
+    /// Wrong brightness value
+    WrongBrightness,
     /// IO Error.
     Io(HidError),
     /// Font Not Found
@@ -54,6 +56,7 @@ impl fmt::Display for BadgeError {
                 f.write_str(format!("Wrong message number ({})", msg_num).as_str())
             }
             WrongSpeed => f.write_str("Wrong speed value"),
+            WrongBrightness => f.write_str("Wrong brightness value"),
             Io(_error) => f.write_str("IO Error"),
             FontNotFound(error) => {
                 f.write_str(format!("Font Not Found: {}", error.description()).as_str())
@@ -208,17 +211,11 @@ fn badge_effect_from_str() {
     assert_eq!(BadgeEffect::from_str("left2"), Err(()));
 }
 
-/// LED brightness
-#[derive(Debug, PartialEq)]
-pub enum BadgeBrightness {
-    B100 = 0,
-    B75,
-    B50,
-    B25,
-}
-
 /// Value range of text animation speed
 pub const BADGE_SPEED_RANGE: RangeInclusive<u8> = 1..=8;
+
+/// Value range of LED brightness
+pub const BADGE_BRIGHTNESS_RANGE: RangeInclusive<u8> = 0..=4;
 
 /// Badge Protocol Header (first report to send)
 #[derive(Debug)]
@@ -315,8 +312,13 @@ impl Badge {
     }
 
     /// Set brightness
-    pub fn set_brightness(&mut self, br: BadgeBrightness) {
-        self.header.brightness = (br as u8) << 4;
+    pub fn set_brightness(&mut self, br: u8) -> Result<(), BadgeError> {
+        if !BADGE_BRIGHTNESS_RANGE.contains(&br) {
+            Err(BadgeError::WrongBrightness)
+        } else {
+            self.header.brightness = (br as u8) << 4;
+            Ok(())
+        }
     }
 
     /// Send the context information to the device

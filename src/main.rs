@@ -5,7 +5,7 @@ use std::fmt::Formatter;
 use std::str::FromStr;
 
 use crate::arg_parser::{App, Arg, ArgParseError, ArgValue};
-use crate::badge::{Badge, BADGE_SPEED_RANGE, BadgeBrightness, BadgeEffect, BadgeError};
+use crate::badge::{Badge, BADGE_BRIGHTNESS_RANGE, BADGE_SPEED_RANGE, BadgeEffect, BadgeError};
 
 mod arg_parser;
 mod badge;
@@ -65,6 +65,11 @@ fn parse_arguments() -> Result<Box<[ArgValue]>, ArgParseError> {
             )
             .to_string(),
         ),
+        Arg::new(
+            'B',
+            Some("brightness".to_string()),
+            "LED brightness [0..3]".to_string(),
+        ),
         Arg::new('h', None, "show this help message".to_string()),
     ];
 
@@ -98,6 +103,7 @@ fn main() {
         let mut msg_number = 0usize;
         let mut msg_speed = *BADGE_SPEED_RANGE.end();
         let mut msg_effect = BadgeEffect::Left;
+        let mut msg_brightness = *BADGE_SPEED_RANGE.end();
 
         for v in option.iter() {
             use ArgValue::*;
@@ -136,13 +142,22 @@ fn main() {
                         ))
                     })?
                 }
+                Arg { name: 'B', value } => {
+                    msg_brightness = match u8::from_str(value.as_str()) {
+                        Ok(i) if BADGE_BRIGHTNESS_RANGE.contains(&i) => Ok(i - 1),
+                        _ => Err(CliError::CliError(format!(
+                            "'{}': wrong value. specify [0..3]",
+                            value
+                        ))),
+                    }?
+                }
                 _ => (),
             }
         }
 
         badge.set_effects(0, msg_effect, msg_speed, false, false)?;
 
-        badge.set_brightness(BadgeBrightness::B25);
+        badge.set_brightness(msg_brightness)?;
 
         badge.send()?;
         Ok(0)
