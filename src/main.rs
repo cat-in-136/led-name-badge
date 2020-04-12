@@ -66,6 +66,7 @@ fn parse_arguments() -> Result<Box<[ArgValue]>, ArgParseError> {
             .to_string(),
         ),
         Arg::new('b', None, "Blink message".to_string()),
+        Arg::new('f', None, "Set frame for message".to_string()),
         Arg::new(
             'B',
             Some("brightness".to_string()),
@@ -143,6 +144,9 @@ fn main() {
                 }
                 FlagArg { name: 'b' } => {
                     badge.set_effect_blink(msg_number, true)?;
+                }
+                FlagArg { name: 'f' } => {
+                    badge.set_effect_frame(msg_number, true)?;
                 }
                 Arg { name: 'B', value } => {
                     let msg_brightness = match u8::from_str(value.as_str()) {
