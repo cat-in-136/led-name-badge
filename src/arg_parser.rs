@@ -1,6 +1,5 @@
 use core::fmt;
-use std::env::Args;
-use std::fmt::{Error, Formatter};
+use std::fmt::Formatter;
 
 // argument option
 #[derive(Debug, Clone)]

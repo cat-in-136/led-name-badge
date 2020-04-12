@@ -1,13 +1,12 @@
-use std::any::Any;
 use std::convert::TryFrom;
 use std::error::Error;
 use std::fmt;
-use std::fmt::{Debug, Display, Formatter};
+use std::fmt::{Debug, Formatter};
 use std::mem;
 use std::ops::RangeInclusive;
 use std::str::FromStr;
 
-use font_kit::error::{FontLoadingError, GlyphLoadingError, SelectionError};
+use font_kit::error::{FontLoadingError, SelectionError};
 use hidapi::{HidApi, HidDevice, HidError};
 
 use crate::badge::text::{find_font, render_text};
