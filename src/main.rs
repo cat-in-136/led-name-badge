@@ -65,6 +65,7 @@ fn parse_arguments() -> Result<Box<[ArgValue]>, ArgParseError> {
             )
             .to_string(),
         ),
+        Arg::new('b', None, "Blink message".to_string()),
         Arg::new(
             'B',
             Some("brightness".to_string()),
@@ -139,6 +140,9 @@ fn main() {
                         ))
                     })?;
                     badge.set_effect_pattern(msg_number, msg_effect)?;
+                }
+                FlagArg { name: 'b' } => {
+                    badge.set_effect_blink(msg_number, true)?;
                 }
                 Arg { name: 'B', value } => {
                     let msg_brightness = match u8::from_str(value.as_str()) {
