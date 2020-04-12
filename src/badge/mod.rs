@@ -287,23 +287,49 @@ impl Badge {
         }
     }
 
-    /// Set effects
-    pub fn set_effects(
+    /// Set effect pattern
+    pub fn set_effect_pattern(
         &mut self,
         msg_num: usize,
         pat: BadgeEffect,
-        spd: u8,
-        blink: bool,
-        frame: bool,
     ) -> Result<(), BadgeError> {
+        if msg_num >= N_MESSAGES {
+            Err(BadgeError::MessageNumberOutOfRange(msg_num))
+        } else {
+            self.header.line_conf[msg_num] =
+                (self.header.line_conf[msg_num] & 0xF0u8) | (pat as u8);
+            Ok(())
+        }
+    }
+
+    /// Set effect speed
+    pub fn set_effect_speed(&mut self, msg_num: usize, spd: u8) -> Result<(), BadgeError> {
         if msg_num >= N_MESSAGES {
             Err(BadgeError::MessageNumberOutOfRange(msg_num))
         } else if !BADGE_SPEED_RANGE.contains(&spd) {
             Err(BadgeError::WrongSpeed)
         } else {
-            self.header.line_conf[msg_num] = (spd << 4) | (pat as u8);
+            self.header.line_conf[msg_num] = (spd << 4) | (self.header.line_conf[msg_num] & 0x0Fu8);
+            Ok(())
+        }
+    }
+
+    /// Set effect blink
+    pub fn set_effect_blink(&mut self, msg_num: usize, blink: bool) -> Result<(), BadgeError> {
+        if msg_num >= N_MESSAGES {
+            Err(BadgeError::MessageNumberOutOfRange(msg_num))
+        } else {
             self.header.flash &= !(0x01u8 << msg_num as u8);
             self.header.flash |= (blink as u8) << msg_num as u8;
+            Ok(())
+        }
+    }
+
+    /// Set effects
+    pub fn set_effect_frame(&mut self, msg_num: usize, frame: bool) -> Result<(), BadgeError> {
+        if msg_num >= N_MESSAGES {
+            Err(BadgeError::MessageNumberOutOfRange(msg_num))
+        } else {
             self.header.border &= !(0x01u8 << msg_num as u8);
             self.header.border |= (frame as u8) << msg_num as u8;
             Ok(())

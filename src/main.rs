@@ -99,11 +99,7 @@ fn main() {
         let option = parse_arguments()?;
 
         let mut badge = Badge::new()?;
-
-        let mut msg_number = 0usize;
-        let mut msg_speed = *BADGE_SPEED_RANGE.end();
-        let mut msg_effect = BadgeEffect::Left;
-        let mut msg_brightness = *BADGE_SPEED_RANGE.end();
+        let mut msg_number = 0;
 
         for v in option.iter() {
             use ArgValue::*;
@@ -115,23 +111,23 @@ fn main() {
                             "'{}': wrong value. specify [0..7]",
                             value
                         ))),
-                    }?
+                    }?;
                 }
                 Arg { name: 't', value } => {
                     badge.add_text_message(msg_number, &value, &["Liberation Sans", "Arial"])?;
-                    badge.set_effects(msg_number, msg_effect, msg_speed, false, false)?;
                 }
                 Arg { name: 's', value } => {
-                    msg_speed = match u8::from_str(value.as_str()) {
+                    let msg_speed = match u8::from_str(value.as_str()) {
                         Ok(i) if BADGE_SPEED_RANGE.contains(&i) => Ok(i),
                         _ => Err(CliError::CliError(format!(
                             "'{}': wrong value. specify [1..8]",
                             value
                         ))),
-                    }?
+                    }?;
+                    badge.set_effect_speed(msg_number, msg_speed)?;
                 }
                 Arg { name: 'e', value } => {
-                    msg_effect = BadgeEffect::from_str(value.as_str()).map_err(|_err| {
+                    let msg_effect = BadgeEffect::from_str(value.as_str()).map_err(|_err| {
                         CliError::CliError(format!(
                             "'{}': wrong value. specify [{}]",
                             value,
@@ -141,22 +137,22 @@ fn main() {
                                 .collect::<Vec<_>>()
                                 .join(","),
                         ))
-                    })?
+                    })?;
+                    badge.set_effect_pattern(msg_number, msg_effect)?;
                 }
                 Arg { name: 'B', value } => {
-                    msg_brightness = match u8::from_str(value.as_str()) {
+                    let msg_brightness = match u8::from_str(value.as_str()) {
                         Ok(i) if BADGE_BRIGHTNESS_RANGE.contains(&i) => Ok(i - 1),
                         _ => Err(CliError::CliError(format!(
                             "'{}': wrong value. specify [0..3]",
                             value
                         ))),
-                    }?
+                    }?;
+                    badge.set_brightness(msg_brightness)?;
                 }
                 _ => (),
             }
         }
-
-        badge.set_brightness(msg_brightness)?;
 
         badge.send()?;
         Ok(0)
