@@ -150,7 +150,7 @@ fn main() {
                 }
                 Arg { name: 'B', value } => {
                     let msg_brightness = match u8::from_str(value.as_str()) {
-                        Ok(i) if BADGE_BRIGHTNESS_RANGE.contains(&i) => Ok(i - 1),
+                        Ok(i) if BADGE_BRIGHTNESS_RANGE.contains(&i) => Ok(i),
                         _ => Err(CliError::CliError(format!(
                             "'{}': wrong value. specify [0..3]",
                             value
