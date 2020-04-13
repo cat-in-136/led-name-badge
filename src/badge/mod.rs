@@ -124,6 +124,7 @@ impl Default for BadgeHeader {
 
 /// Message effect type
 #[derive(Debug, PartialEq, Copy, Clone)]
+#[allow(dead_code)]
 pub enum BadgeEffect {
     Left = 0,
     Right,
