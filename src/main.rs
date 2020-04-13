@@ -80,7 +80,10 @@ fn parse_arguments() -> Result<Box<[ArgValue]>, ArgParseError> {
     let values = app.parse(&arguments)?;
 
     if values.iter().any(|option| match option {
-        ArgValue::FlagArg { name: 'h' } => true,
+        ArgValue::Arg {
+            name: 'h',
+            value: None,
+        } => true,
         _ => false,
     }) {
         println!(
@@ -106,7 +109,10 @@ fn main() {
         for v in option.iter() {
             use ArgValue::*;
             match v {
-                Arg { name: 'i', value } => {
+                Arg {
+                    name: 'i',
+                    value: Some(value),
+                } => {
                     msg_number = match usize::from_str(value.as_str()) {
                         Ok(i) if (i <= 7) => Ok(i),
                         _ => Err(CliError::CliError(format!(
@@ -115,10 +121,16 @@ fn main() {
                         ))),
                     }?;
                 }
-                Arg { name: 't', value } => {
+                Arg {
+                    name: 't',
+                    value: Some(value),
+                } => {
                     badge.add_text_message(msg_number, &value, &["Liberation Sans", "Arial"])?;
                 }
-                Arg { name: 's', value } => {
+                Arg {
+                    name: 's',
+                    value: Some(value),
+                } => {
                     let msg_speed = match u8::from_str(value.as_str()) {
                         Ok(i) if BADGE_SPEED_RANGE.contains(&i) => Ok(i),
                         _ => Err(CliError::CliError(format!(
@@ -128,7 +140,10 @@ fn main() {
                     }?;
                     badge.set_effect_speed(msg_number, msg_speed)?;
                 }
-                Arg { name: 'e', value } => {
+                Arg {
+                    name: 'e',
+                    value: Some(value),
+                } => {
                     let msg_effect = BadgeEffect::from_str(value.as_str()).map_err(|_err| {
                         CliError::CliError(format!(
                             "'{}': wrong value. specify [{}]",
@@ -142,13 +157,22 @@ fn main() {
                     })?;
                     badge.set_effect_pattern(msg_number, msg_effect)?;
                 }
-                FlagArg { name: 'b' } => {
+                Arg {
+                    name: 'b',
+                    value: None,
+                } => {
                     badge.set_effect_blink(msg_number, true)?;
                 }
-                FlagArg { name: 'f' } => {
+                Arg {
+                    name: 'f',
+                    value: None,
+                } => {
                     badge.set_effect_frame(msg_number, true)?;
                 }
-                Arg { name: 'B', value } => {
+                Arg {
+                    name: 'B',
+                    value: Some(value),
+                } => {
                     let msg_brightness = match u8::from_str(value.as_str()) {
                         Ok(i) if BADGE_BRIGHTNESS_RANGE.contains(&i) => Ok(i),
                         _ => Err(CliError::CliError(format!(

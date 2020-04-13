@@ -38,8 +38,7 @@ fn test_arg_is_matched() {
 /// Argument value
 #[derive(Debug, PartialEq)]
 pub(crate) enum ArgValue {
-    FlagArg { name: char },
-    Arg { name: char, value: String },
+    Arg { name: char, value: Option<String> },
     Value { value: String },
 }
 
@@ -99,14 +98,14 @@ impl App<'_> {
                     if let Some(val) = arguments_iter.next() {
                         values.push(ArgValue::Arg {
                             name,
-                            value: val.to_string(),
+                            value: Some(val.to_string()),
                         });
                     } else {
                         return Err(ArgParseError::ArgValueMissing { name });
                     }
                 } else {
                     // if this option does not take a value
-                    values.push(ArgValue::FlagArg { name });
+                    values.push(ArgValue::Arg { name, value: None });
                 }
             } else {
                 return Err(ArgParseError::ParseError { argument });
@@ -153,22 +152,34 @@ fn test_app_parse() {
     let arguments = vec!["-a", "-b", "B1", "-b", "B2", "-a", "VAL"];
     let matches = app.parse(&arguments).unwrap();
     assert_eq!(matches.len(), 5);
-    assert_eq!(matches[0], ArgValue::FlagArg { name: 'a' });
+    assert_eq!(
+        matches[0],
+        ArgValue::Arg {
+            name: 'a',
+            value: None
+        }
+    );
     assert_eq!(
         matches[1],
         ArgValue::Arg {
             name: 'b',
-            value: "B1".to_string()
+            value: Some("B1".to_string())
         }
     );
     assert_eq!(
         matches[2],
         ArgValue::Arg {
             name: 'b',
-            value: "B2".to_string()
+            value: Some("B2".to_string())
         }
     );
-    assert_eq!(matches[3], ArgValue::FlagArg { name: 'a' });
+    assert_eq!(
+        matches[3],
+        ArgValue::Arg {
+            name: 'a',
+            value: None
+        }
+    );
     assert_eq!(
         matches[4],
         ArgValue::Value {
@@ -196,7 +207,7 @@ fn test_app_parse() {
         matches[0],
         ArgValue::Arg {
             name: 'b',
-            value: "-a".to_string()
+            value: Some("-a".to_string())
         }
     ); // this is spec!
 }
