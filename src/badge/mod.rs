@@ -234,7 +234,6 @@ impl Default for BadgeMessage {
 
 /// Badge context
 pub struct Badge {
-    device: HidDevice,
     header: BadgeHeader,
     messages: [BadgeMessage; N_MESSAGES],
 }
@@ -245,7 +244,7 @@ impl Badge {
     /// # Errors
     ///
     /// If failed to open a LED badge, then an error is returned.
-    pub fn new() -> Result<Self, BadgeError> {
+    fn open() -> Result<HidDevice, BadgeError> {
         let api = HidApi::new()?;
 
         match api
@@ -262,8 +261,12 @@ impl Badge {
             .open(BADGE_VID, BADGE_PID)
             .map_err(|e| BadgeError::CouldNotOpenDevice(e))?;
 
+        Ok(device)
+    }
+
+    /// Create Badge config entity
+    pub fn new() -> Result<Self, BadgeError> {
         Ok(Badge {
-            device,
             header: Default::default(),
             messages: Default::default(),
         })
@@ -353,6 +356,8 @@ impl Badge {
     ///
     /// If failed to write the data to the device, then an error is returned.
     pub fn send(&mut self) -> Result<(), BadgeError> {
+        let mut device = Badge::open()?;
+
         let mut disp_buf: Vec<u8> = Vec::with_capacity(DISP_SIZE);
         for i in 0..N_MESSAGES {
             let msg_len = self.messages[i].data.len() / BADGE_MSG_FONT_HEIGHT;
@@ -369,7 +374,7 @@ impl Badge {
             report_buf.push(0u8);
             report_buf.extend_from_slice(unsafe { self.header.as_slice() });
             report_buf.resize(REPORT_BUF_LEN, 0u8);
-            self.device.write(report_buf.as_slice())?;
+            device.write(report_buf.as_slice())?;
         }
 
         for i in (0..disp_buf.len()).step_by(PAYLOAD_SIZE) {
@@ -379,7 +384,7 @@ impl Badge {
             report_buf.push(0u8);
             report_buf.extend_from_slice(disp_buf[disp_buf_range].as_ref());
             report_buf.resize(REPORT_BUF_LEN, 0u8);
-            self.device.write(report_buf.as_slice())?;
+            device.write(report_buf.as_slice())?;
         }
 
         Ok(())
