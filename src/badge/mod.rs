@@ -357,7 +357,7 @@ impl Badge {
     ///
     /// If failed to write the data to the device, then an error is returned.
     pub fn send(&mut self) -> Result<(), BadgeError> {
-        let mut device = Badge::open()?;
+        let device = Badge::open()?;
 
         let mut disp_buf: Vec<u8> = Vec::with_capacity(DISP_SIZE);
         for i in 0..N_MESSAGES {
@@ -390,4 +390,84 @@ impl Badge {
 
         Ok(())
     }
+}
+
+#[test]
+fn test_badge_new() {
+    assert!(Badge::new().is_ok());
+}
+
+#[test]
+fn test_badge_add_text_message() {
+    let mut badge = Badge::new().unwrap();
+    let font_names = &["Liberation Sans", "Arial"];
+
+    assert!(badge.add_text_message(N_MESSAGES, "", font_names).is_err());
+
+    assert!(badge
+        .add_text_message(N_MESSAGES - 1, "", font_names)
+        .is_ok());
+    assert!(badge.messages[N_MESSAGES - 1].data.iter().all(|&v| v == 0));
+
+    assert!(badge.add_text_message(0, "A", font_names).is_ok());
+    assert!(badge.messages[0].data.iter().any(|&v| v != 0));
+}
+
+#[test]
+fn test_badge_set_effect_pattern() {
+    let mut badge = Badge::new().unwrap();
+
+    assert!(badge
+        .set_effect_pattern(N_MESSAGES, BadgeEffect::Left)
+        .is_err());
+
+    assert!(badge
+        .set_effect_pattern(N_MESSAGES - 1, BadgeEffect::Laser)
+        .is_ok());
+    assert_eq!(
+        badge.header.line_conf[N_MESSAGES - 1] & 0x0f,
+        BadgeEffect::Laser as u8
+    );
+
+    assert!(badge.set_effect_pattern(0, BadgeEffect::Left).is_ok());
+    assert_eq!(badge.header.line_conf[0] & 0x0f, BadgeEffect::Left as u8);
+}
+
+#[test]
+fn test_badge_set_effect_speed() {
+    let mut badge = Badge::new().unwrap();
+
+    assert!(badge.set_effect_speed(N_MESSAGES, 1).is_err());
+
+    assert!(badge.set_effect_speed(0, 0).is_err());
+    assert!(badge.set_effect_speed(0, 9).is_err());
+
+    assert!(badge.set_effect_speed(0, 1).is_ok());
+    assert_eq!(badge.header.line_conf[0] & 0xf0, 0 << 4);
+    assert!(badge.set_effect_speed(N_MESSAGES - 1, 8).is_ok());
+    assert_eq!(badge.header.line_conf[N_MESSAGES - 1] & 0xf0, 7 << 4);
+}
+
+#[test]
+fn test_badge_set_effect_blink() {
+    let mut badge = Badge::new().unwrap();
+
+    assert!(badge.set_effect_blink(N_MESSAGES, true).is_err());
+
+    assert!(badge.set_effect_blink(N_MESSAGES-1, true).is_ok());
+    assert_eq!(badge.header.flash & (1 << (N_MESSAGES as u8 -1)), (1 << (N_MESSAGES as u8 -1)));
+    assert!(badge.set_effect_blink(N_MESSAGES-1, false).is_ok());
+    assert_eq!(badge.header.flash & (1 << (N_MESSAGES as u8 -1)), (0 << (N_MESSAGES as u8 -1)));
+}
+
+#[test]
+fn test_badge_set_effect_frame() {
+    let mut badge = Badge::new().unwrap();
+
+    assert!(badge.set_effect_frame(N_MESSAGES, true).is_err());
+
+    assert!(badge.set_effect_frame(N_MESSAGES-1, true).is_ok());
+    assert_eq!(badge.header.border & (1 << (N_MESSAGES as u8 -1)), (1 << (N_MESSAGES as u8 -1)));
+    assert!(badge.set_effect_frame(N_MESSAGES-1, false).is_ok());
+    assert_eq!(badge.header.border & (1 << (N_MESSAGES as u8 -1)), (0 << (N_MESSAGES as u8 -1)));
 }
