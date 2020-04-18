@@ -313,7 +313,8 @@ impl Badge {
         } else if !BADGE_SPEED_RANGE.contains(&spd) {
             Err(BadgeError::WrongSpeed)
         } else {
-            self.header.line_conf[msg_num] = (spd << 4) | (self.header.line_conf[msg_num] & 0x0Fu8);
+            self.header.line_conf[msg_num] =
+                ((spd - 1) << 4) | (self.header.line_conf[msg_num] & 0x0Fu8);
             Ok(())
         }
     }
