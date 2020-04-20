@@ -2,6 +2,7 @@ extern crate hidapi;
 
 use core::fmt;
 use std::fmt::Formatter;
+use std::path::Path;
 use std::str::FromStr;
 
 use crate::arg_parser::{App, Arg, ArgParseError, ArgValue};
@@ -72,6 +73,11 @@ fn parse_arguments() -> Result<Box<[ArgValue]>, ArgParseError> {
             Some("brightness".to_string()),
             "LED brightness [0..3]".to_string(),
         ),
+        Arg::new(
+            'o',
+            Some("pngfile".to_string()),
+            "Write to png file instead of badge".to_string(),
+        ),
         Arg::new('h', None, "show this help message".to_string()),
     ];
 
@@ -105,6 +111,7 @@ fn main() {
 
         let mut badge = Badge::new()?;
         let mut msg_number = 0;
+        let mut disable_send_to_badge = false;
 
         for v in option.iter() {
             use ArgValue::*;
@@ -182,11 +189,21 @@ fn main() {
                     }?;
                     badge.set_brightness(msg_brightness)?;
                 }
+                Arg {
+                    name: 'o',
+                    value: Some(value),
+                } => {
+                    let path = Path::new(value);
+                    badge.write_to_png_file(msg_number, path)?;
+                    disable_send_to_badge = true;
+                }
                 _ => (),
             }
         }
 
-        badge.send()?;
+        if !disable_send_to_badge {
+            badge.send()?;
+        }
         Ok(0)
     })()
     .unwrap_or_else(|err| {

@@ -2,12 +2,16 @@ use std::convert::TryFrom;
 use std::error::Error;
 use std::fmt;
 use std::fmt::{Debug, Formatter};
+use std::fs::File;
+use std::io::{BufWriter, Cursor, Write};
 use std::mem;
 use std::ops::RangeInclusive;
+use std::path::Path;
 use std::str::FromStr;
 
 use font_kit::error::{FontLoadingError, SelectionError};
 use hidapi::{HidApi, HidDevice, HidError};
+use png::EncodingError;
 
 use crate::badge::text::{find_font, render_text};
 
@@ -33,12 +37,16 @@ pub enum BadgeError {
     WrongSpeed,
     /// Wrong brightness value
     WrongBrightness,
-    /// IO Error.
-    Io(HidError),
+    /// HID IO Error.
+    HidIo(HidError),
     /// Font Not Found
     FontNotFound(SelectionError),
     /// Font Loading Error
     FontLoading(FontLoadingError),
+    /// File IO Error
+    FileIo(std::io::Error),
+    /// Png Encoding Error
+    PngEncodingError(String),
 }
 
 impl fmt::Display for BadgeError {
@@ -56,18 +64,37 @@ impl fmt::Display for BadgeError {
             }
             WrongSpeed => f.write_str("Wrong speed value"),
             WrongBrightness => f.write_str("Wrong brightness value"),
-            Io(_error) => f.write_str("IO Error"),
+            HidIo(_error) => f.write_str("Device IO Error"),
             FontNotFound(error) => {
                 f.write_str(format!("Font Not Found: {}", error.description()).as_str())
             }
             FontLoading(_error) => f.write_str("Failed to load font"),
+            FileIo(error) => {
+                f.write_str(format!("File IO Error: {}", error.description()).as_str())
+            }
+            PngEncodingError(msg) => f.write_str(format!("PNG Encoding Error: {}", msg).as_str()),
         }
     }
 }
 
 impl From<HidError> for BadgeError {
     fn from(e: HidError) -> Self {
-        BadgeError::Io(e)
+        BadgeError::HidIo(e)
+    }
+}
+
+impl From<std::io::Error> for BadgeError {
+    fn from(e: std::io::Error) -> Self {
+        BadgeError::FileIo(e)
+    }
+}
+
+impl From<png::EncodingError> for BadgeError {
+    fn from(e: png::EncodingError) -> Self {
+        match e {
+            EncodingError::IoError(e) => BadgeError::FileIo(e),
+            EncodingError::Format(data) => BadgeError::PngEncodingError(data.to_string()),
+        }
     }
 }
 
@@ -390,6 +417,46 @@ impl Badge {
 
         Ok(())
     }
+
+    /// Write png data to the writer instead of badge
+    pub fn write_to_png<W: Write>(&self, msg_num: usize, writer: W) -> Result<(), BadgeError> {
+        if msg_num >= N_MESSAGES {
+            Err(BadgeError::MessageNumberOutOfRange(msg_num))
+        } else {
+            let (width, height) = (8 * self.messages[msg_num].data.len() as u32 / 11, 11);
+            let mut image_data = vec![0u8; (width * height) as usize];
+            for (data_index, &v) in self.messages[msg_num].data.iter().enumerate() {
+                let data_x = (data_index / 11) * 8;
+                let data_y = data_index % 11;
+                for i in 0usize..8usize {
+                    let (x, y) = (data_x + i, data_y);
+                    let image_data_index = x + y * width as usize;
+                    if v & (0x80 >> i) as u8 != 0 {
+                        image_data[image_data_index] = 0xFF;
+                    }
+                }
+            }
+
+            let mut encoder = png::Encoder::new(writer, width, height);
+            encoder.set_color(png::ColorType::Grayscale);
+            encoder.set_depth(png::BitDepth::Eight);
+            let mut writer = encoder.write_header()?;
+            writer.write_image_data(&image_data)?;
+
+            Ok(())
+        }
+    }
+
+    /// Write png data to file instead of the badge
+    pub fn write_to_png_file(&self, msg_num: usize, path: &Path) -> Result<(), BadgeError> {
+        if msg_num >= N_MESSAGES {
+            Err(BadgeError::MessageNumberOutOfRange(msg_num))
+        } else {
+            let file = File::create(path)?;
+            let ref mut w = BufWriter::new(file);
+            self.write_to_png(msg_num, w)
+        }
+    }
 }
 
 #[test]
@@ -454,10 +521,16 @@ fn test_badge_set_effect_blink() {
 
     assert!(badge.set_effect_blink(N_MESSAGES, true).is_err());
 
-    assert!(badge.set_effect_blink(N_MESSAGES-1, true).is_ok());
-    assert_eq!(badge.header.flash & (1 << (N_MESSAGES as u8 -1)), (1 << (N_MESSAGES as u8 -1)));
-    assert!(badge.set_effect_blink(N_MESSAGES-1, false).is_ok());
-    assert_eq!(badge.header.flash & (1 << (N_MESSAGES as u8 -1)), (0 << (N_MESSAGES as u8 -1)));
+    assert!(badge.set_effect_blink(N_MESSAGES - 1, true).is_ok());
+    assert_eq!(
+        badge.header.flash & (1 << (N_MESSAGES as u8 - 1)),
+        (1 << (N_MESSAGES as u8 - 1))
+    );
+    assert!(badge.set_effect_blink(N_MESSAGES - 1, false).is_ok());
+    assert_eq!(
+        badge.header.flash & (1 << (N_MESSAGES as u8 - 1)),
+        (0 << (N_MESSAGES as u8 - 1))
+    );
 }
 
 #[test]
@@ -466,8 +539,76 @@ fn test_badge_set_effect_frame() {
 
     assert!(badge.set_effect_frame(N_MESSAGES, true).is_err());
 
-    assert!(badge.set_effect_frame(N_MESSAGES-1, true).is_ok());
-    assert_eq!(badge.header.border & (1 << (N_MESSAGES as u8 -1)), (1 << (N_MESSAGES as u8 -1)));
-    assert!(badge.set_effect_frame(N_MESSAGES-1, false).is_ok());
-    assert_eq!(badge.header.border & (1 << (N_MESSAGES as u8 -1)), (0 << (N_MESSAGES as u8 -1)));
+    assert!(badge.set_effect_frame(N_MESSAGES - 1, true).is_ok());
+    assert_eq!(
+        badge.header.border & (1 << (N_MESSAGES as u8 - 1)),
+        (1 << (N_MESSAGES as u8 - 1))
+    );
+    assert!(badge.set_effect_frame(N_MESSAGES - 1, false).is_ok());
+    assert_eq!(
+        badge.header.border & (1 << (N_MESSAGES as u8 - 1)),
+        (0 << (N_MESSAGES as u8 - 1))
+    );
+}
+
+#[test]
+fn test_badge_write_to_png() {
+    let mut v = Vec::<u8>::new();
+    let mut w = Cursor::new(&mut v);
+    w.write(&[0xff]).unwrap();
+    // assert_eq!(v.len(), 0);
+
+    let mut badge = Badge::new().unwrap();
+
+    let mut png_data = Vec::<u8>::new();
+    let mut w = Cursor::new(&mut png_data);
+    assert!(badge.write_to_png(N_MESSAGES, w.get_mut()).is_err());
+    assert_eq!(png_data.len(), 0);
+
+    let mut png_data = Vec::<u8>::new();
+    let mut w = Cursor::new(&mut png_data);
+    assert_eq!(badge.messages[N_MESSAGES - 1].data.len(), 0);
+    assert!(badge.write_to_png(N_MESSAGES - 1, w.get_mut()).is_err());
+
+    #[rustfmt::skip]
+    let sample_data: [u8; 22] = [
+        0xFF, 0x00, 0xAA, 0x55, 0xFF, 0x00, 0xAA, 0x55, 0xFF, 0x00, 0xAA,
+        0x00, 0xAA, 0x55, 0xFF, 0x00, 0xAA, 0x55, 0xFF, 0x00, 0xAA, 0x55,
+    ];
+    #[rustfmt::skip]
+    let sample_pixels: Vec<u8> = vec![
+        0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,  0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00,
+        0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00,  0x00, 0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00, 0xFF,
+        0x00, 0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00, 0xFF,  0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+        0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,  0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00,
+        0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00,  0x00, 0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00, 0xFF,
+        0x00, 0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00, 0xFF,  0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+        0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,  0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00,
+        0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00,  0x00, 0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00, 0xFF,
+    ];
+
+    badge.messages[N_MESSAGES - 1]
+        .data
+        .extend_from_slice(&sample_data);
+    let mut png_data = Vec::<u8>::new();
+    let mut w = Cursor::new(&mut png_data);
+    assert!(badge.write_to_png(N_MESSAGES - 1, w.get_mut()).is_ok());
+    assert_eq!(
+        &png_data[0..8],
+        &[0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]
+    );
+
+    let r = Cursor::new(&png_data);
+    let decoder = png::Decoder::new(r);
+    let (info, mut reader) = decoder.read_info().unwrap();
+    assert_eq!((info.width, info.height), (8 * 2, 11));
+    assert_eq!(info.bit_depth, png::BitDepth::Eight);
+    assert_eq!(info.color_type, png::ColorType::Grayscale);
+
+    let mut png_pixels = vec![0; (info.width * info.height) as usize];
+    reader.next_frame(&mut png_pixels).unwrap();
+    assert_eq!(png_pixels, sample_pixels);
 }
