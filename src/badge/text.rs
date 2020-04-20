@@ -13,7 +13,7 @@ use font_kit::loader::FontTransform;
 use font_kit::properties::Properties;
 use font_kit::source::SystemSource;
 
-use crate::badge::BadgeError;
+use crate::badge::error::BadgeError;
 
 /// A continence method to find font and returns a Font.
 ///
