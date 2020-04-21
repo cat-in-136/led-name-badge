@@ -3,16 +3,18 @@ use std::fmt::Formatter;
 
 // argument option
 #[derive(Debug, Clone)]
-pub(crate) struct Arg {
-    name: char,
+pub(crate) struct Arg<ID: Copy> {
+    id: ID,
+    short_name: char,
     value_name: Option<String>,
     help: String,
 }
 
-impl Arg {
-    pub(crate) fn new(name: char, value_name: Option<String>, help: String) -> Self {
-        Self {
-            name,
+impl<ID: Copy> Arg<ID> {
+    pub(crate) fn new(id: ID, short_name: char, value_name: Option<String>, help: String) -> Self {
+        Arg {
+            id,
+            short_name,
             value_name,
             help,
         }
@@ -21,7 +23,7 @@ impl Arg {
     // Check if arg is matched to this argument option
     fn is_matched(&self, arg: &str) -> bool {
         if arg.len() == 2 {
-            (arg.chars().nth(0) == Some('-')) && (arg.chars().nth(1) == Some(self.name))
+            (arg.chars().nth(0) == Some('-')) && (arg.chars().nth(1) == Some(self.short_name))
         } else {
             false
         }
@@ -30,15 +32,15 @@ impl Arg {
 
 #[test]
 fn test_arg_is_matched() {
-    let arg = Arg::new('a', None, "help".to_string());
+    let arg = Arg::new(0, 'a', None, "help".to_string());
     assert_eq!(arg.is_matched("-a"), true);
     assert_eq!(arg.is_matched("-b"), false);
 }
 
 /// Argument value
 #[derive(Debug, PartialEq)]
-pub(crate) enum ArgValue {
-    Arg { name: char, value: Option<String> },
+pub(crate) enum ArgValue<ID: Copy + PartialEq> {
+    Arg { id: ID, value: Option<String> },
     Value { value: String },
 }
 
@@ -63,22 +65,27 @@ impl fmt::Display for ArgParseError {
     }
 }
 
-pub(crate) struct App<'a> {
-    options: Box<&'a [Arg]>,
+pub(crate) struct App<'a, ID: Copy + PartialEq> {
+    options: Box<&'a [Arg<ID>]>,
 }
 
-impl App<'_> {
-    pub(crate) fn new(options: &[Arg]) -> App {
+impl<ID: Copy + PartialEq> App<'_, ID> {
+    pub(crate) fn new(options: &[Arg<ID>]) -> App<ID> {
         App {
             options: Box::new(options),
         }
+    }
+
+    /// Find the arg object for specific id.
+    pub(crate) fn find_arg(&self, id: ID) -> Option<Arg<ID>> {
+        self.options.iter().find(|&v| v.id == id).map(|v| v.clone())
     }
 
     /// Parse CLI arguments with options.
     pub(crate) fn parse<T: ToString>(
         &self,
         arguments: &[T],
-    ) -> Result<Box<[ArgValue]>, ArgParseError> {
+    ) -> Result<Box<[ArgValue<ID>]>, ArgParseError> {
         let mut values = Vec::with_capacity(self.options.len());
 
         let mut arguments_iter = arguments.iter();
@@ -91,21 +98,22 @@ impl App<'_> {
                 .iter()
                 .find(|&opt| opt.is_matched(argument.as_str()))
             {
-                let name = arg.name;
+                let id = arg.id;
+                let short_name = arg.short_name;
 
                 if arg.value_name.is_some() {
                     // if this option takes a value
                     if let Some(val) = arguments_iter.next() {
                         values.push(ArgValue::Arg {
-                            name,
+                            id,
                             value: Some(val.to_string()),
                         });
                     } else {
-                        return Err(ArgParseError::ArgValueMissing { name });
+                        return Err(ArgParseError::ArgValueMissing { name: short_name });
                     }
                 } else {
                     // if this option does not take a value
-                    values.push(ArgValue::Arg { name, value: None });
+                    values.push(ArgValue::Arg { id, value: None });
                 }
             } else {
                 return Err(ArgParseError::ParseError { argument });
@@ -121,9 +129,9 @@ impl App<'_> {
 
         for option in self.options.iter() {
             let left = if let Some(t) = &option.value_name {
-                format!("    -{} {}", option.name, t)
+                format!("    -{} {}", option.short_name, t)
             } else {
-                format!("    -{}", option.name)
+                format!("    -{}", option.short_name)
             };
             text.push_str(left.as_str());
             let indent_offset = 30.max(left.len() + 1);
@@ -145,41 +153,29 @@ impl App<'_> {
 #[test]
 fn test_app_parse() {
     let options = vec![
-        Arg::new('a', None, "option a".to_string()),
-        Arg::new('b', Some("VAL".to_string()), "option b".to_string()),
+        Arg::new(0, 'a', None, "option a".to_string()),
+        Arg::new(1, 'b', Some("VAL".to_string()), "option b".to_string()),
     ];
     let app = App::new(&options);
     let arguments = vec!["-a", "-b", "B1", "-b", "B2", "-a", "VAL"];
     let matches = app.parse(&arguments).unwrap();
     assert_eq!(matches.len(), 5);
-    assert_eq!(
-        matches[0],
-        ArgValue::Arg {
-            name: 'a',
-            value: None
-        }
-    );
+    assert_eq!(matches[0], ArgValue::Arg { id: 0, value: None });
     assert_eq!(
         matches[1],
         ArgValue::Arg {
-            name: 'b',
+            id: 1,
             value: Some("B1".to_string())
         }
     );
     assert_eq!(
         matches[2],
         ArgValue::Arg {
-            name: 'b',
+            id: 1,
             value: Some("B2".to_string())
         }
     );
-    assert_eq!(
-        matches[3],
-        ArgValue::Arg {
-            name: 'a',
-            value: None
-        }
-    );
+    assert_eq!(matches[3], ArgValue::Arg { id: 0, value: None });
     assert_eq!(
         matches[4],
         ArgValue::Value {
@@ -206,7 +202,7 @@ fn test_app_parse() {
     assert_eq!(
         matches[0],
         ArgValue::Arg {
-            name: 'b',
+            id: 1,
             value: Some("-a".to_string())
         }
     ); // this is spec!
