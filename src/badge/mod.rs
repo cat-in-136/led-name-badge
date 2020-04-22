@@ -473,12 +473,12 @@ fn test_write_to_png() {
         &[0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]
     );
 }
+
 #[test]
 fn test_write_to_png_file() {
-    let mut badge = Badge::new().unwrap();
+    let badge = Badge::new().unwrap();
 
     let path = Path::new("");
     assert!(badge.write_to_png_file(N_MESSAGES, path).is_err());
-
     // Success case is not tested in this function.
 }
