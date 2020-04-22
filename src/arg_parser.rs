@@ -151,6 +151,19 @@ impl<ID: Copy + PartialEq> App<'_, ID> {
 }
 
 #[test]
+fn test_app_find_arg() {
+    let options = vec![
+        Arg::new(0, 'a', None, "option a".to_string()),
+        Arg::new(1, 'b', Some("VAL".to_string()), "option b".to_string()),
+    ];
+    let app = App::new(&options);
+
+    assert_eq!(app.find_arg(0).unwrap().id, 0);
+    assert_eq!(app.find_arg(1).unwrap().id, 1);
+    assert!(app.find_arg(2).is_none());
+}
+
+#[test]
 fn test_app_parse() {
     let options = vec![
         Arg::new(0, 'a', None, "option a".to_string()),
