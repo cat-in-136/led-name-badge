@@ -44,7 +44,7 @@ impl fmt::Display for BadgeError {
             BadgeNotFound => f.write_str("Badge Not Found"),
             MultipleBadgeFound => f.write_str("Multiple Badge Found"),
             CouldNotOpenDevice(error) => {
-                f.write_str(format!("Could not open device: {}", error.description()).as_str())
+                f.write_str(format!("Could not open device: {}", error).as_str())
             }
             MessageNumberOutOfRange(msg_num) => {
                 f.write_str(format!("Wrong message number ({})", msg_num).as_str())
@@ -53,11 +53,11 @@ impl fmt::Display for BadgeError {
             WrongBrightness => f.write_str("Wrong brightness value"),
             HidIo(_error) => f.write_str("Device IO Error"),
             FontNotFound(error) => {
-                f.write_str(format!("Font Not Found: {}", error.description()).as_str())
+                f.write_str(format!("Font Not Found: {}", error).as_str())
             }
             FontLoading(_error) => f.write_str("Failed to load font"),
             FileIo(error) => {
-                f.write_str(format!("File IO Error: {}", error.description()).as_str())
+                f.write_str(format!("File IO Error: {}", error).as_str())
             }
             PngReadError(path, error) => {
                 let msg_summary = if let Some(path) = path {
@@ -67,7 +67,7 @@ impl fmt::Display for BadgeError {
                 };
                 let msg_detail = match error {
                     BadgeImageReadError::PngDecodeError(decoding_error) => match decoding_error {
-                        DecodingError::IoError(e) => e.description().to_string(),
+                        DecodingError::IoError(e) => format!("{}", e),
                         DecodingError::Format(data) => data.to_string(),
                         DecodingError::InvalidSignature => {
                             ("Broken File (Invalid signature)".to_string())
@@ -88,7 +88,7 @@ impl fmt::Display for BadgeError {
                     "Could not read png data:".to_string()
                 };
                 let msg_detail = match error {
-                    BadgeImageWriteError::PngEncodeError(e) => e.description(),
+                    BadgeImageWriteError::PngEncodeError(e) => format!("{}", e),
                 };
                 f.write_str(format!("{}{}", msg_summary, msg_detail).as_str())
             }

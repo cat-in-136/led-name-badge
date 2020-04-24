@@ -263,7 +263,6 @@ fn main() {
         Ok(0)
     })()
     .unwrap_or_else(|err| {
-        eprintln!("Error: {}", err);
         std::process::exit(1);
     });
 }
