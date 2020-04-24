@@ -3,7 +3,9 @@ use std::error::Error;
 
 use font_kit::error::{FontLoadingError, SelectionError};
 use hidapi::HidError;
-use png::EncodingError;
+use png::DecodingError;
+
+use crate::badge::image_io::{BadgeImageReadError, BadgeImageWriteError};
 
 /// Describes an error related to the LED Badge operation
 #[derive(Debug)]
@@ -28,8 +30,10 @@ pub enum BadgeError {
     FontLoading(FontLoadingError),
     /// File IO Error
     FileIo(std::io::Error),
-    /// Png Encoding Error
-    PngEncodingError(String),
+    /// Png Reading Error,
+    PngReadError(Option<String>, BadgeImageReadError),
+    /// Png Writing Error,
+    PngWriteError(Option<String>, BadgeImageWriteError),
 }
 
 impl fmt::Display for BadgeError {
@@ -55,7 +59,39 @@ impl fmt::Display for BadgeError {
             FileIo(error) => {
                 f.write_str(format!("File IO Error: {}", error.description()).as_str())
             }
-            PngEncodingError(msg) => f.write_str(format!("PNG Encoding Error: {}", msg).as_str()),
+            PngReadError(path, error) => {
+                let msg_summary = if let Some(path) = path {
+                    format!("Could not open png file: {} :", path)
+                } else {
+                    "Could not read png data:".to_string()
+                };
+                let msg_detail = match error {
+                    BadgeImageReadError::PngDecodeError(decoding_error) => match decoding_error {
+                        DecodingError::IoError(e) => e.description().to_string(),
+                        DecodingError::Format(data) => data.to_string(),
+                        DecodingError::InvalidSignature => {
+                            ("Broken File (Invalid signature)".to_string())
+                        }
+                        DecodingError::CrcMismatch { .. } => "Broken file (CRC Error)".to_string(),
+                        DecodingError::Other(data) => data.to_string(),
+                        DecodingError::CorruptFlateStream => "Corrupted Flate Stream".to_string(),
+                        DecodingError::LimitsExceeded => "Limits Exceeded".to_string(),
+                    },
+                    BadgeImageReadError::UnsupportedPngError(data) => data.to_string(),
+                };
+                f.write_str(format!("{}{}", msg_summary, msg_detail).as_str())
+            }
+            PngWriteError(path, error) => {
+                let msg_summary = if let Some(path) = path {
+                    format!("Could not write to png file: {} :", path)
+                } else {
+                    "Could not read png data:".to_string()
+                };
+                let msg_detail = match error {
+                    BadgeImageWriteError::PngEncodeError(e) => e.description(),
+                };
+                f.write_str(format!("{}{}", msg_summary, msg_detail).as_str())
+            }
         }
     }
 }
@@ -69,14 +105,5 @@ impl From<HidError> for BadgeError {
 impl From<std::io::Error> for BadgeError {
     fn from(e: std::io::Error) -> Self {
         BadgeError::FileIo(e)
-    }
-}
-
-impl From<png::EncodingError> for BadgeError {
-    fn from(e: png::EncodingError) -> Self {
-        match e {
-            EncodingError::IoError(e) => BadgeError::FileIo(e),
-            EncodingError::Format(data) => BadgeError::PngEncodingError(data.to_string()),
-        }
     }
 }

@@ -45,6 +45,7 @@ impl fmt::Display for CliError {
 enum CliArgumentId {
     i,
     t,
+    p,
     s,
     e,
     b,
@@ -67,6 +68,12 @@ fn parse_arguments() -> Result<Box<[ArgValue<CliArgumentId>]>, ArgParseError> {
             't',
             Some("msg".to_string()),
             "Message text".to_string(),
+        ),
+        Arg::new(
+            CliArgumentId::p,
+            'p',
+            Some("file".to_string()),
+            "Load message png file".to_string(),
         ),
         Arg::new(
             CliArgumentId::s,
@@ -173,6 +180,11 @@ fn main() {
                         &["Liberation Sans", "Arial"],
                     )?;
                 }
+                Arg {id: CliArgumentId::p, value} => {
+                    let path = value.as_ref().unwrap();
+                    let path = Path::new(path.as_str());
+                    badge.add_png_file_message(msg_number, path)?;
+                },
                 Arg {
                     id: CliArgumentId::s,
                     value,

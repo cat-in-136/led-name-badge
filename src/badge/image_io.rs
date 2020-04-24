@@ -1,11 +1,22 @@
-use std::io::{Cursor, Write};
+use std::io::{Cursor, Read, Write};
 
-use crate::badge::BadgeError;
+use png::{BitDepth, ColorType, DecodingError, EncodingError};
+
+#[derive(Debug)]
+pub enum BadgeImageWriteError {
+    PngEncodeError(EncodingError),
+}
+
+impl From<EncodingError> for BadgeImageWriteError {
+    fn from(e: EncodingError) -> Self {
+        BadgeImageWriteError::PngEncodeError(e)
+    }
+}
 
 pub fn write_badge_message_to_png<W: Write>(
     message_data: &[u8],
     writer: W,
-) -> Result<(), BadgeError> {
+) -> Result<(), BadgeImageWriteError> {
     let (width, height) = (8 * message_data.len() as u32 / 11, 11);
     let mut image_data = vec![0u8; (width * height) as usize];
     for (data_index, &v) in message_data.iter().enumerate() {
@@ -73,4 +84,80 @@ fn test_write_badge_message_to_png() {
     let mut png_pixels = vec![0; (info.width * info.height) as usize];
     reader.next_frame(&mut png_pixels).unwrap();
     assert_eq!(png_pixels, sample_pixels);
+}
+
+#[derive(Debug)]
+pub enum BadgeImageReadError {
+    PngDecodeError(DecodingError),
+    UnsupportedPngError(String),
+}
+
+impl From<DecodingError> for BadgeImageReadError {
+    fn from(e: DecodingError) -> Self {
+        BadgeImageReadError::PngDecodeError(e)
+    }
+}
+
+pub fn read_png_to_badge_message<R: Read>(reader: R) -> Result<Vec<u8>, BadgeImageReadError> {
+    let decoder = png::Decoder::new(reader);
+    let (info, mut reader) = decoder.read_info()?;
+
+    if info.bit_depth != BitDepth::Eight {
+        return Err(BadgeImageReadError::UnsupportedPngError(
+            format!("{:?}: only 8bpp PNG supported", info.bit_depth).to_string(),
+        ));
+    }
+    if info.height != 11 {
+        return Err(BadgeImageReadError::UnsupportedPngError(
+            format!("height must be 11px, but height is {}", info.height).to_string(),
+        ));
+    }
+
+    let byte_per_pixel = match info.color_type {
+        ColorType::Grayscale => 1,
+        ColorType::RGB => 3,
+        ColorType::Indexed => 3,
+        ColorType::GrayscaleAlpha => 2,
+        ColorType::RGBA => 4,
+    };
+    let mut buf = vec![0; info.buffer_size()];
+    reader.next_frame(&mut buf)?;
+    let mut data = vec![0; ((info.width + 7) / 8 * 11) as usize];
+    for (i, &v) in buf.iter().step_by(byte_per_pixel).enumerate() {
+        let canvas_x = i % info.width as usize;
+        let canvas_y = i / info.width as usize;
+        let data_x = canvas_x / 8;
+        let data_offset = canvas_x % 8;
+        let data_y = canvas_y;
+        let data_index = data_x * 11 + data_y;
+
+        if v >= 0x80 {
+            data[data_index] |= 0x80u8 >> data_offset as u8;
+        }
+    }
+
+    Ok(data.to_owned())
+}
+
+#[test]
+fn test_read_png_to_badge_message() {
+    let png_data = vec![
+        0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d, 0x49, 0x48, 0x44,
+        0x52, 0x00, 0x00, 0x00, 0x10, 0x00, 0x00, 0x00, 0x0b, 0x01, 0x00, 0x00, 0x00, 0x00, 0x5e,
+        0x99, 0x30, 0x94, 0x00, 0x00, 0x00, 0x16, 0x49, 0x44, 0x41, 0x54, 0x78, 0xda, 0x63, 0xfc,
+        0xcf, 0xc8, 0xc8, 0xb0, 0x8a, 0x71, 0xd5, 0x6a, 0xc6, 0xd0, 0x55, 0x58, 0xd9, 0x00, 0xb3,
+        0x3f, 0x0b, 0x07, 0x82, 0x6b, 0xdc, 0x80, 0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4e, 0x44,
+        0xae, 0x42, 0x60, 0x82,
+    ];
+    #[rustfmt::skip]
+        let sample_data: [u8; 22] = [
+        0xFF, 0x00, 0xAA, 0x55, 0xFF, 0x00, 0xAA, 0x55, 0xFF, 0x00, 0xAA,
+        0x00, 0xAA, 0x55, 0xFF, 0x00, 0xAA, 0x55, 0xFF, 0x00, 0xAA, 0x55,
+    ];
+
+    let r = Cursor::new(&png_data);
+    assert_eq!(
+        read_png_to_badge_message(r).unwrap().as_slice(),
+        &sample_data
+    );
 }

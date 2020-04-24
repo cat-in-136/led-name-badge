@@ -2,7 +2,7 @@ use std::convert::TryFrom;
 use std::fmt;
 use std::fmt::{Debug, Formatter};
 use std::fs::File;
-use std::io::{BufWriter, Cursor, Write};
+use std::io::{BufReader, BufWriter, Cursor, Read, Write};
 use std::mem;
 use std::ops::RangeInclusive;
 use std::path::Path;
@@ -11,6 +11,7 @@ use std::str::FromStr;
 use hidapi::{HidApi, HidDevice};
 
 pub use crate::badge::error::BadgeError;
+use crate::badge::error::BadgeError::PngWriteError;
 use crate::badge::text::{find_font, render_text};
 
 mod error;
@@ -242,6 +243,43 @@ impl Badge {
         }
     }
 
+    /// Add Png message
+    pub fn add_png_message<R: Read>(
+        &mut self,
+        msg_num: usize,
+        reader: R,
+    ) -> Result<(), BadgeError> {
+        if msg_num >= N_MESSAGES {
+            Err(BadgeError::MessageNumberOutOfRange(msg_num))
+        }else {
+            let mut pixel_data = image_io::read_png_to_badge_message(reader).map_err(|e| {
+                BadgeError::PngReadError(None, e)
+            })?;
+            mem::swap(&mut self.messages[msg_num].data, &mut pixel_data);
+            Ok(())
+        }
+    }
+
+    /// Add Png-file message
+    pub fn add_png_file_message(
+        &mut self,
+        msg_num: usize,
+        path: &Path,
+    ) -> Result<(), BadgeError> {
+        if msg_num >= N_MESSAGES {
+            Err(BadgeError::MessageNumberOutOfRange(msg_num))
+        }else {
+            let file = File::open(path)?;
+            let reader = BufReader::new(file);
+
+            let mut pixel_data = image_io::read_png_to_badge_message(reader).map_err(|e| {
+                BadgeError::PngReadError(path.to_str().map_or(None, |v| Some(v.to_string())), e)
+            })?;
+            mem::swap(&mut self.messages[msg_num].data, &mut pixel_data);
+            Ok(())
+        }
+    }
+
     /// Set effect pattern
     pub fn set_effect_pattern(
         &mut self,
@@ -349,6 +387,7 @@ impl Badge {
         } else {
             let message_data = self.messages[msg_num].data.as_slice();
             image_io::write_badge_message_to_png(message_data, writer)
+                .map_err(|e| BadgeError::PngWriteError(None, e))
         }
     }
 
@@ -361,6 +400,7 @@ impl Badge {
             let file = File::create(path)?;
             let ref mut w = BufWriter::new(file);
             image_io::write_badge_message_to_png(message_data, w)
+                .map_err(|e| PngWriteError(path.to_str().map_or(None, |v| Some(v.to_string())), e))
         }
     }
 }
@@ -368,6 +408,35 @@ impl Badge {
 #[test]
 fn test_badge_new() {
     assert!(Badge::new().is_ok());
+}
+
+#[test]
+fn add_png_message() {
+    let mut badge = Badge::new().unwrap();
+
+    let valid_8x11_png = vec![
+        0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d, 0x49, 0x48, 0x44, 0x52,
+        0x00, 0x00, 0x00, 0x08, 0x00, 0x00, 0x00, 0x0b, 0x01, 0x00, 0x00, 0x00, 0x00, 0x6a, 0xe0, 0xf1,
+        0x88, 0x00, 0x00, 0x00, 0x0c, 0x49, 0x44, 0x41, 0x54, 0x78, 0xda, 0x63, 0xf8, 0x8f, 0x0d, 0x02,
+        0x00, 0x78, 0x9d, 0x0a, 0xf6, 0xc1, 0x81, 0x34, 0x05, 0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4e,
+        0x44, 0xae, 0x42, 0x60, 0x82,
+    ];
+    let corrupted_data = vec![0; 1];
+
+
+    let reader = Cursor::new(&valid_8x11_png);
+    assert!(badge.add_png_message(N_MESSAGES, reader).is_err());
+
+    let reader = Cursor::new(&corrupted_data);
+    assert!(badge
+        .add_png_message(N_MESSAGES - 1, reader)
+        .is_err());
+
+    let reader = Cursor::new(&valid_8x11_png);
+    assert!(badge
+        .add_png_message(N_MESSAGES - 1, reader)
+        .is_ok());
+    assert_eq!(badge.messages[N_MESSAGES-1].data, &[0xff; 11]);
 }
 
 #[test]
