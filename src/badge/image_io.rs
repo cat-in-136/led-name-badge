@@ -2,6 +2,8 @@ use std::io::{Cursor, Read, Write};
 
 use png::{BitDepth, ColorType, DecodingError, EncodingError};
 
+use crate::badge::BADGE_MSG_FONT_HEIGHT;
+
 #[derive(Debug)]
 pub enum BadgeImageWriteError {
     PngEncodeError(EncodingError),
@@ -17,11 +19,14 @@ pub fn write_badge_message_to_png<W: Write>(
     message_data: &[u8],
     writer: W,
 ) -> Result<(), BadgeImageWriteError> {
-    let (width, height) = (8 * message_data.len() as u32 / 11, 11);
-    let mut image_data = vec![0u8; (width * height) as usize];
+    let (width, height) = (
+        8 * message_data.len() / BADGE_MSG_FONT_HEIGHT,
+        BADGE_MSG_FONT_HEIGHT,
+    );
+    let mut image_data = vec![0u8; width * height];
     for (data_index, &v) in message_data.iter().enumerate() {
-        let data_x = (data_index / 11) * 8;
-        let data_y = data_index % 11;
+        let data_x = (data_index / BADGE_MSG_FONT_HEIGHT) * 8;
+        let data_y = data_index % BADGE_MSG_FONT_HEIGHT;
         for i in 0usize..8usize {
             let (x, y) = (data_x + i, data_y);
             let image_data_index = x + y * width as usize;
@@ -30,7 +35,7 @@ pub fn write_badge_message_to_png<W: Write>(
             }
         }
     }
-    let mut encoder = png::Encoder::new(writer, width, height);
+    let mut encoder = png::Encoder::new(writer, width as u32, height as u32);
     encoder.set_color(png::ColorType::Grayscale);
     encoder.set_depth(png::BitDepth::Eight);
     let mut writer = encoder.write_header()?;
@@ -77,7 +82,10 @@ fn test_write_badge_message_to_png() {
     let r = Cursor::new(&png_data);
     let decoder = png::Decoder::new(r);
     let (info, mut reader) = decoder.read_info().unwrap();
-    assert_eq!((info.width, info.height), (8 * 2, 11));
+    assert_eq!(
+        (info.width, info.height),
+        (8 * 2, BADGE_MSG_FONT_HEIGHT as u32)
+    );
     assert_eq!(info.bit_depth, png::BitDepth::Eight);
     assert_eq!(info.color_type, png::ColorType::Grayscale);
 
@@ -107,9 +115,13 @@ pub fn read_png_to_badge_message<R: Read>(reader: R) -> Result<Vec<u8>, BadgeIma
             format!("{:?}: only 8bpp PNG supported", info.bit_depth).to_string(),
         ));
     }
-    if info.height != 11 {
+    if info.height != BADGE_MSG_FONT_HEIGHT as u32 {
         return Err(BadgeImageReadError::UnsupportedPngError(
-            format!("height must be 11px, but height is {}", info.height).to_string(),
+            format!(
+                "height must be {}px, but height is {}",
+                BADGE_MSG_FONT_HEIGHT, info.height
+            )
+            .to_string(),
         ));
     }
 
@@ -122,14 +134,14 @@ pub fn read_png_to_badge_message<R: Read>(reader: R) -> Result<Vec<u8>, BadgeIma
     };
     let mut buf = vec![0; info.buffer_size()];
     reader.next_frame(&mut buf)?;
-    let mut data = vec![0; ((info.width + 7) / 8 * 11) as usize];
+    let mut data = vec![0; (info.width as usize + 7) / 8 * BADGE_MSG_FONT_HEIGHT];
     for (i, &v) in buf.iter().step_by(byte_per_pixel).enumerate() {
         let canvas_x = i % info.width as usize;
         let canvas_y = i / info.width as usize;
         let data_x = canvas_x / 8;
         let data_offset = canvas_x % 8;
         let data_y = canvas_y;
-        let data_index = data_x * 11 + data_y;
+        let data_index = data_x * BADGE_MSG_FONT_HEIGHT + data_y;
 
         if v >= 0x80 {
             data[data_index] |= 0x80u8 >> data_offset as u8;

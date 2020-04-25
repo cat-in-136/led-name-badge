@@ -27,13 +27,13 @@ const BADGE_PID: u16 = 0x5020;
 pub const N_MESSAGES: usize = 8;
 
 /// Maximum length of message text
-pub const MAX_STR: usize = 255;
+const MAX_STR: usize = 255;
 
 /// Maximum number of display memory size
-pub const DISP_SIZE: usize = 32767;
+const DISP_SIZE: usize = 32767;
 
 /// Height of the message
-pub const BADGE_MSG_FONT_HEIGHT: usize = 11;
+const BADGE_MSG_FONT_HEIGHT: usize = 11;
 
 /// Badge Protocol Header (first report to send)
 #[derive(Debug, Copy, Clone)]
@@ -237,7 +237,8 @@ impl Badge {
             Ok(()) // Do nothing
         } else {
             let font = find_font(font_names)?;
-            let mut pixel_data = render_text(msg, 11, &font);
+            let font_size = BADGE_MSG_FONT_HEIGHT as u32;
+            let mut pixel_data = render_text(msg, font_size, &font);
             mem::swap(&mut self.messages[msg_num].data, &mut pixel_data);
             Ok(())
         }
@@ -430,7 +431,10 @@ fn add_png_message() {
 
     let reader = Cursor::new(&valid_8x11_png);
     assert!(badge.add_png_message(N_MESSAGES - 1, reader).is_ok());
-    assert_eq!(badge.messages[N_MESSAGES - 1].data, &[0xff; 11]);
+    assert_eq!(
+        badge.messages[N_MESSAGES - 1].data,
+        &[0xff; BADGE_MSG_FONT_HEIGHT]
+    );
 }
 
 #[test]
@@ -530,7 +534,7 @@ fn test_write_to_png() {
     let mut png_data = Vec::<u8>::new();
     assert!(badge.write_to_png(N_MESSAGES - 1, &mut png_data).is_err());
 
-    badge.messages[N_MESSAGES - 1].data = vec![0; 11];
+    badge.messages[N_MESSAGES - 1].data = vec![0; BADGE_MSG_FONT_HEIGHT];
     let mut png_data = Vec::<u8>::new();
     let mut w = Cursor::new(&mut png_data);
     assert!(badge.write_to_png(N_MESSAGES - 1, w.get_mut()).is_ok());
