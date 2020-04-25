@@ -2,7 +2,7 @@ use std::io::{Read, Write};
 #[cfg(test)]
 use std::io::Cursor;
 
-use png::{BitDepth, ColorType, DecodingError, EncodingError};
+use png::{BitDepth, ColorType, Decoder, DecodingError, Encoder, EncodingError};
 
 use crate::badge::BADGE_MSG_FONT_HEIGHT;
 
@@ -37,9 +37,9 @@ pub fn write_badge_message_to_png<W: Write>(
             }
         }
     }
-    let mut encoder = png::Encoder::new(writer, width as u32, height as u32);
-    encoder.set_color(png::ColorType::Grayscale);
-    encoder.set_depth(png::BitDepth::Eight);
+    let mut encoder = Encoder::new(writer, width as u32, height as u32);
+    encoder.set_color(ColorType::Grayscale);
+    encoder.set_depth(BitDepth::Eight);
     let mut writer = encoder.write_header()?;
     writer.write_image_data(&image_data)?;
     Ok(())
@@ -82,14 +82,14 @@ fn test_write_badge_message_to_png() {
     );
 
     let r = Cursor::new(&png_data);
-    let decoder = png::Decoder::new(r);
+    let decoder = Decoder::new(r);
     let (info, mut reader) = decoder.read_info().unwrap();
     assert_eq!(
         (info.width, info.height),
         (8 * 2, BADGE_MSG_FONT_HEIGHT as u32)
     );
-    assert_eq!(info.bit_depth, png::BitDepth::Eight);
-    assert_eq!(info.color_type, png::ColorType::Grayscale);
+    assert_eq!(info.bit_depth, BitDepth::Eight);
+    assert_eq!(info.color_type, ColorType::Grayscale);
 
     let mut png_pixels = vec![0; (info.width * info.height) as usize];
     reader.next_frame(&mut png_pixels).unwrap();
@@ -109,7 +109,7 @@ impl From<DecodingError> for BadgeImageReadError {
 }
 
 pub fn read_png_to_badge_message<R: Read>(reader: R) -> Result<Vec<u8>, BadgeImageReadError> {
-    let decoder = png::Decoder::new(reader);
+    let decoder = Decoder::new(reader);
     let (info, mut reader) = decoder.read_info()?;
 
     if info.bit_depth != BitDepth::Eight {
@@ -155,20 +155,86 @@ pub fn read_png_to_badge_message<R: Read>(reader: R) -> Result<Vec<u8>, BadgeIma
 
 #[test]
 fn test_read_png_to_badge_message() {
-    let png_data = vec![
-        0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d, 0x49, 0x48, 0x44,
-        0x52, 0x00, 0x00, 0x00, 0x10, 0x00, 0x00, 0x00, 0x0b, 0x01, 0x00, 0x00, 0x00, 0x00, 0x5e,
-        0x99, 0x30, 0x94, 0x00, 0x00, 0x00, 0x16, 0x49, 0x44, 0x41, 0x54, 0x78, 0xda, 0x63, 0xfc,
-        0xcf, 0xc8, 0xc8, 0xb0, 0x8a, 0x71, 0xd5, 0x6a, 0xc6, 0xd0, 0x55, 0x58, 0xd9, 0x00, 0xb3,
-        0x3f, 0x0b, 0x07, 0x82, 0x6b, 0xdc, 0x80, 0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4e, 0x44,
-        0xae, 0x42, 0x60, 0x82,
-    ];
+    fn create_png_data(
+        width: u32,
+        color_type: ColorType,
+        bit_depth: BitDepth,
+        data: &[u8],
+    ) -> Vec<u8> {
+        let mut png_data = Vec::new();
+        {
+            let w = Cursor::new(&mut png_data);
+            let mut encoder = Encoder::new(w, width, BADGE_MSG_FONT_HEIGHT as u32);
+            encoder.set_color(color_type);
+            encoder.set_depth(bit_depth);
+            let mut writer = encoder.write_header().unwrap();
+            writer.write_image_data(data).unwrap();
+        }
+        png_data
+    }
+
     #[rustfmt::skip]
         let sample_data: [u8; 22] = [
         0xFF, 0x00, 0xAA, 0x55, 0xFF, 0x00, 0xAA, 0x55, 0xFF, 0x00, 0xAA,
         0x00, 0xAA, 0x55, 0xFF, 0x00, 0xAA, 0x55, 0xFF, 0x00, 0xAA, 0x55,
     ];
+    #[rustfmt::skip]
+        let sample_pixels: Vec<u8> = vec![
+        0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,  0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00,
+        0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00,  0x00, 0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00, 0xFF,
+        0x00, 0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00, 0xFF,  0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+        0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,  0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00,
+        0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00,  0x00, 0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00, 0xFF,
+        0x00, 0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00, 0xFF,  0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+        0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,  0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00,
+        0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00,  0x00, 0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00, 0xFF,
+    ];
 
+    let png_data = create_png_data(16, ColorType::Grayscale, BitDepth::Eight, &sample_pixels);
+    let r = Cursor::new(&png_data);
+    assert_eq!(
+        read_png_to_badge_message(r).unwrap().as_slice(),
+        &sample_data
+    );
+
+    // ColorType::GrayscaleAlpha
+    let sample_pixels_gray_alpha = sample_pixels
+        .iter()
+        .flat_map(|&v| vec![v, 0xFF])
+        .collect::<Vec<u8>>();
+    let png_data = create_png_data(
+        16,
+        ColorType::GrayscaleAlpha,
+        BitDepth::Eight,
+        &sample_pixels_gray_alpha,
+    );
+    let r = Cursor::new(&png_data);
+    assert_eq!(
+        read_png_to_badge_message(r).unwrap().as_slice(),
+        &sample_data
+    );
+
+    // ColorType::RGB
+    let sample_pixels_rgb = sample_pixels
+        .iter()
+        .flat_map(|&v| vec![v, v, v])
+        .collect::<Vec<u8>>();
+    let png_data = create_png_data(16, ColorType::RGB, BitDepth::Eight, &sample_pixels_rgb);
+    let r = Cursor::new(&png_data);
+    assert_eq!(
+        read_png_to_badge_message(r).unwrap().as_slice(),
+        &sample_data
+    );
+
+    // ColorType::RGBA
+    let sample_pixels_rgba = sample_pixels
+        .iter()
+        .flat_map(|&v| vec![v, v, v, 255])
+        .collect::<Vec<u8>>();
+    let png_data = create_png_data(16, ColorType::RGBA, BitDepth::Eight, &sample_pixels_rgba);
     let r = Cursor::new(&png_data);
     assert_eq!(
         read_png_to_badge_message(r).unwrap().as_slice(),
