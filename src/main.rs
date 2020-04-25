@@ -88,8 +88,7 @@ fn parse_arguments() -> Result<Box<[ArgValue<CliArgumentId>]>, ArgParseError> {
             format!(
                 "Message effect\n[{}]",
                 BadgeEffect::values()
-                    .iter()
-                    .map(|&v| v.to_string())
+                    .map(|v| v.to_string())
                     .collect::<Vec<_>>()
                     .join(","),
             )
@@ -211,8 +210,7 @@ fn main() {
                                 "-e '{}': wrong value. specify [{}]",
                                 value.as_ref().unwrap(),
                                 BadgeEffect::values()
-                                    .iter()
-                                    .map(|&v| v.to_string())
+                                    .map(|v| v.to_string())
                                     .collect::<Vec<_>>()
                                     .join(","),
                             ))

@@ -92,18 +92,17 @@ pub enum BadgeEffect {
 }
 
 impl BadgeEffect {
-    pub fn values() -> Vec<BadgeEffect> {
+    pub fn values() -> impl Iterator<Item = BadgeEffect> {
         (0..)
             .map(|v| BadgeEffect::try_from(v))
             .take_while(|v| v.is_ok())
             .map(|v| v.unwrap())
-            .collect::<Vec<BadgeEffect>>()
     }
 }
 
 #[test]
 fn test_badge_effect_values() {
-    let values = BadgeEffect::values();
+    let values = BadgeEffect::values().collect::<Vec<_>>();
     assert_eq!(values[0], BadgeEffect::Left);
     assert_eq!(values[values.len() - 1], BadgeEffect::Laser);
 }
@@ -153,9 +152,8 @@ impl FromStr for BadgeEffect {
 
     fn from_str(value: &str) -> Result<Self, Self::Err> {
         BadgeEffect::values()
-            .iter()
-            .find(|&&v| v.to_string().as_str() == value)
-            .map_or(Err(Self::Err::default()), |&v| Ok(v))
+            .find(|&v| v.to_string().as_str() == value)
+            .map_or(Err(Self::Err::default()), |v| Ok(v))
     }
 }
 
