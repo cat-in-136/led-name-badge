@@ -180,11 +180,14 @@ fn main() {
                         &["Liberation Sans", "Arial"],
                     )?;
                 }
-                Arg {id: CliArgumentId::p, value} => {
+                Arg {
+                    id: CliArgumentId::p,
+                    value,
+                } => {
                     let path = value.as_ref().unwrap();
                     let path = Path::new(path.as_str());
                     badge.add_png_file_message(msg_number, path)?;
-                },
+                }
                 Arg {
                     id: CliArgumentId::s,
                     value,
@@ -262,7 +265,7 @@ fn main() {
         }
         Ok(0)
     })()
-    .unwrap_or_else(|err| {
+    .unwrap_or_else(|_err| {
         std::process::exit(1);
     });
 }

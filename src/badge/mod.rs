@@ -2,7 +2,9 @@ use std::convert::TryFrom;
 use std::fmt;
 use std::fmt::{Debug, Formatter};
 use std::fs::File;
-use std::io::{BufReader, BufWriter, Cursor, Read, Write};
+use std::io::{BufReader, BufWriter, Read, Write};
+#[cfg(test)]
+use std::io::Cursor;
 use std::mem;
 use std::ops::RangeInclusive;
 use std::path::Path;

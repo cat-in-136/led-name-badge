@@ -1,5 +1,4 @@
 use core::fmt;
-use std::error::Error;
 
 use font_kit::error::{FontLoadingError, SelectionError};
 use hidapi::HidError;

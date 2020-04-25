@@ -1,4 +1,6 @@
-use std::io::{Cursor, Read, Write};
+use std::io::{Read, Write};
+#[cfg(test)]
+use std::io::Cursor;
 
 use png::{BitDepth, ColorType, DecodingError, EncodingError};
 
