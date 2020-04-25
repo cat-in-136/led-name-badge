@@ -30,10 +30,12 @@ pub enum BadgeError {
     FontLoading(FontLoadingError),
     /// File IO Error
     FileIo(std::io::Error),
-    /// Png Reading Error,
+    /// Png Reading Error
     PngReadError(Option<String>, BadgeImageReadError),
-    /// Png Writing Error,
+    /// Png Writing Error
     PngWriteError(Option<String>, BadgeImageWriteError),
+    /// No data to write
+    NoDataToWrite,
 }
 
 impl fmt::Display for BadgeError {
@@ -52,13 +54,9 @@ impl fmt::Display for BadgeError {
             WrongSpeed => f.write_str("Wrong speed value"),
             WrongBrightness => f.write_str("Wrong brightness value"),
             HidIo(_error) => f.write_str("Device IO Error"),
-            FontNotFound(error) => {
-                f.write_str(format!("Font Not Found: {}", error).as_str())
-            }
+            FontNotFound(error) => f.write_str(format!("Font Not Found: {}", error).as_str()),
             FontLoading(_error) => f.write_str("Failed to load font"),
-            FileIo(error) => {
-                f.write_str(format!("File IO Error: {}", error).as_str())
-            }
+            FileIo(error) => f.write_str(format!("File IO Error: {}", error).as_str()),
             PngReadError(path, error) => {
                 let msg_summary = if let Some(path) = path {
                     format!("Could not open png file: {} :", path)
@@ -92,6 +90,7 @@ impl fmt::Display for BadgeError {
                 };
                 f.write_str(format!("{}{}", msg_summary, msg_detail).as_str())
             }
+            NoDataToWrite => f.write_str("No data to write"),
         }
     }
 }
