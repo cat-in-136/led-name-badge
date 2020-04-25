@@ -56,10 +56,10 @@ impl fmt::Display for ArgParseError {
         use ArgParseError::*;
         match self {
             ArgValueMissing { name } => {
-                f.write_str(format!("\'-{}\': parameter value missing", name).as_str())
+                f.write_fmt(format_args!("\'-{}\': parameter value missing", name))
             }
             ParseError { argument } => {
-                f.write_str(format!("\'{}\': wrong argument", argument).as_str())
+                f.write_fmt(format_args!("\'{}\': wrong argument", argument))
             }
         }
     }

@@ -45,17 +45,17 @@ impl fmt::Display for BadgeError {
             BadgeNotFound => f.write_str("Badge Not Found"),
             MultipleBadgeFound => f.write_str("Multiple Badge Found"),
             CouldNotOpenDevice(error) => {
-                f.write_str(format!("Could not open device: {}", error).as_str())
+                f.write_fmt(format_args!("Could not open device: {}", error))
             }
             MessageNumberOutOfRange(msg_num) => {
-                f.write_str(format!("Wrong message number ({})", msg_num).as_str())
+                f.write_fmt(format_args!("Wrong message number ({})", msg_num))
             }
             WrongSpeed => f.write_str("Wrong speed value"),
             WrongBrightness => f.write_str("Wrong brightness value"),
             HidIo(_error) => f.write_str("Device IO Error"),
-            FontNotFound(error) => f.write_str(format!("Font Not Found: {}", error).as_str()),
+            FontNotFound(error) => f.write_fmt(format_args!("Font Not Found: {}", error)),
             FontLoading(_error) => f.write_str("Failed to load font"),
-            FileIo(error) => f.write_str(format!("File IO Error: {}", error).as_str()),
+            FileIo(error) => f.write_fmt(format_args!("File IO Error: {}", error)),
             PngReadError(path, error) => {
                 let msg_summary = if let Some(path) = path {
                     format!("Could not open png file: {} :", path)
@@ -76,7 +76,7 @@ impl fmt::Display for BadgeError {
                     },
                     BadgeImageReadError::UnsupportedPngError(data) => data.to_string(),
                 };
-                f.write_str(format!("{}{}", msg_summary, msg_detail).as_str())
+                f.write_fmt(format_args!("{}{}", msg_summary, msg_detail))
             }
             PngWriteError(path, error) => {
                 let msg_summary = if let Some(path) = path {
@@ -87,7 +87,7 @@ impl fmt::Display for BadgeError {
                 let msg_detail = match error {
                     BadgeImageWriteError::PngEncodeError(e) => format!("{}", e),
                 };
-                f.write_str(format!("{}{}", msg_summary, msg_detail).as_str())
+                f.write_fmt(format_args!("{}{}", msg_summary, msg_detail))
             }
             NoDataToWrite => f.write_str("No data to write"),
         }
