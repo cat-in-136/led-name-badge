@@ -2,6 +2,8 @@ extern crate hidapi;
 
 use core::fmt;
 use std::fmt::Formatter;
+use std::fs::File;
+use std::io::{BufReader, Read};
 use std::path::Path;
 use std::str::FromStr;
 
@@ -45,6 +47,7 @@ impl fmt::Display for CliError {
 enum CliArgumentId {
     i,
     t,
+    T,
     p,
     s,
     e,
@@ -68,6 +71,12 @@ fn parse_arguments() -> Result<Box<[ArgValue<CliArgumentId>]>, ArgParseError> {
             't',
             Some("msg".to_string()),
             "Message text".to_string(),
+        ),
+        Arg::new(
+            CliArgumentId::T,
+            'T',
+            Some("file".to_string()),
+            "Message text read from file".to_string(),
         ),
         Arg::new(
             CliArgumentId::p,
@@ -176,6 +185,24 @@ fn main() {
                     badge.add_text_message(
                         msg_number,
                         &value.as_ref().unwrap(),
+                        &["Liberation Sans", "Arial"],
+                    )?;
+                }
+                Arg {
+                    id: CliArgumentId::T,
+                    value,
+                } => {
+                    let msg = (|| -> Result<String, std::io::Error> {
+                        let file = File::open(Path::new(&value.as_ref().unwrap()))?;
+                        let mut msg = String::new();
+                        BufReader::new(file).read_to_string(&mut msg)?;
+                        Ok(msg)
+                    })()
+                    .map_err(|e| CliError::BadgeError(BadgeError::from(e)))?;
+
+                    badge.add_text_message(
+                        msg_number,
+                        msg.as_str(),
                         &["Liberation Sans", "Arial"],
                     )?;
                 }
