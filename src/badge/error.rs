@@ -1,4 +1,6 @@
 use core::fmt;
+use std::io::Error;
+use std::path::Path;
 
 use font_kit::error::{FontLoadingError, SelectionError};
 use hidapi::HidError;
@@ -103,5 +105,11 @@ impl fmt::Display for BadgeError {
 impl From<HidError> for BadgeError {
     fn from(e: HidError) -> Self {
         BadgeError::HidIo(e)
+    }
+}
+
+impl From<(&Path, std::io::Error)> for BadgeError {
+    fn from((path, e): (&Path, Error)) -> Self {
+        BadgeError::FileIo(path.to_str().map_or(None, |v| Some(v.to_string())), e)
     }
 }
