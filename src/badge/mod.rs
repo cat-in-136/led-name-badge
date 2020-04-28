@@ -265,7 +265,9 @@ impl Badge {
         if msg_num >= N_MESSAGES {
             Err(BadgeError::MessageNumberOutOfRange(msg_num))
         } else {
-            let file = File::open(path)?;
+            let file = File::open(path).map_err(|e| {
+                BadgeError::FileIo(path.to_str().map_or(None, |v| Some(v.to_string())), e)
+            })?;
             let reader = BufReader::new(file);
 
             let mut pixel_data = image_io::read_png_to_badge_message(reader).map_err(|e| {
@@ -397,7 +399,9 @@ impl Badge {
             Err(BadgeError::NoDataToWrite)
         } else {
             let message_data = self.messages[msg_num].data.as_slice();
-            let file = File::create(path)?;
+            let file = File::create(path).map_err(|e| {
+                BadgeError::FileIo(path.to_str().map_or(None, |v| Some(v.to_string())), e)
+            })?;
             let ref mut w = BufWriter::new(file);
             image_io::write_badge_message_to_png(message_data, w)
                 .map_err(|e| PngWriteError(path.to_str().map_or(None, |v| Some(v.to_string())), e))

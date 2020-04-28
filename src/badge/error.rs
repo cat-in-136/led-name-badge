@@ -27,8 +27,8 @@ pub enum BadgeError {
     FontNotFound(SelectionError),
     /// Font Loading Error
     FontLoading(FontLoadingError),
-    /// File IO Error
-    FileIo(std::io::Error),
+    /// File IO Error related to specific file
+    FileIo(Option<String>, std::io::Error),
     /// Png Reading Error
     PngReadError(Option<String>, BadgeImageReadError),
     /// Png Writing Error
@@ -55,7 +55,13 @@ impl fmt::Display for BadgeError {
             HidIo(_error) => f.write_str("Device IO Error"),
             FontNotFound(error) => f.write_fmt(format_args!("Font Not Found: {}", error)),
             FontLoading(_error) => f.write_str("Failed to load font"),
-            FileIo(error) => f.write_fmt(format_args!("File IO Error: {}", error)),
+            FileIo(path, error) => {
+                if let Some(path) = path {
+                    f.write_fmt(format_args!("File IO Error: {}: {}", path, error))
+                } else {
+                    f.write_fmt(format_args!("File IO Error: {}", error))
+                }
+            }
             PngReadError(path, error) => {
                 let msg_summary = if let Some(path) = path {
                     format!("Could not open png file: {} :", path)
@@ -97,11 +103,5 @@ impl fmt::Display for BadgeError {
 impl From<HidError> for BadgeError {
     fn from(e: HidError) -> Self {
         BadgeError::HidIo(e)
-    }
-}
-
-impl From<std::io::Error> for BadgeError {
-    fn from(e: std::io::Error) -> Self {
-        BadgeError::FileIo(e)
     }
 }

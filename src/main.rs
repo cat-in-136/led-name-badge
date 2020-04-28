@@ -198,7 +198,12 @@ fn main() {
                         BufReader::new(file).read_to_string(&mut msg)?;
                         Ok(msg)
                     })()
-                    .map_err(|e| CliError::BadgeError(BadgeError::from(e)))?;
+                    .map_err(|e| {
+                        CliError::BadgeError(BadgeError::FileIo(
+                            Some(value.as_ref().unwrap().to_string()),
+                            e,
+                        ))
+                    })?;
 
                     badge.add_text_message(
                         msg_number,
