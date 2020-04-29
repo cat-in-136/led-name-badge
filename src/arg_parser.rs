@@ -81,6 +81,11 @@ impl<ID: Copy + PartialEq> App<'_, ID> {
         self.options.iter().find(|&v| v.id == id).map(|v| v.clone())
     }
 
+    /// Find the arg object for given argument text
+    fn find_matched_arg(&self, argument: &str) -> Option<&Arg<ID>> {
+        self.options.iter().find(|&opt| opt.is_matched(argument))
+    }
+
     /// Parse CLI arguments with options.
     pub(crate) fn parse<T: ToString>(
         &self,
@@ -93,15 +98,11 @@ impl<ID: Copy + PartialEq> App<'_, ID> {
             let argument = argument.to_string();
             if !argument.starts_with("-") {
                 values.push(ArgValue::Value { value: argument });
-            } else if let Some(arg) = self
-                .options
-                .iter()
-                .find(|&opt| opt.is_matched(argument.as_str()))
-            {
+            } else if let Some(arg) = self.find_matched_arg(&argument) {
                 let id = arg.id;
                 let short_name = arg.short_name;
 
-                if arg.value_name.is_some() {
+                if let Some(_) = arg.value_name {
                     // if this option takes a value
                     if let Some(val) = arguments_iter.next() {
                         values.push(ArgValue::Arg {
