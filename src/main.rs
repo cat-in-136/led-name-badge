@@ -3,7 +3,7 @@ extern crate hidapi;
 use core::fmt;
 use std::fmt::Formatter;
 use std::fs::File;
-use std::io::{BufReader, Read};
+use std::io::{BufReader, BufWriter, Read};
 use std::path::Path;
 use std::str::FromStr;
 
@@ -198,12 +198,7 @@ fn main() {
                         BufReader::new(file).read_to_string(&mut msg)?;
                         Ok(msg)
                     })()
-                    .map_err(|e| {
-                        CliError::BadgeError(BadgeError::FileIo(
-                            Some(value.as_ref().unwrap().to_string()),
-                            e,
-                        ))
-                    })?;
+                    .map_err(|e| CliError::BadgeError(BadgeError::FileIo(value.clone(), e)))?;
 
                     badge.add_text_message(
                         msg_number,
@@ -215,9 +210,10 @@ fn main() {
                     id: CliArgumentId::p,
                     value,
                 } => {
-                    let path = value.as_ref().unwrap();
-                    let path = Path::new(path.as_str());
-                    badge.add_png_file_message(msg_number, path)?;
+                    let file = File::open(Path::new(&value.as_ref().unwrap()))
+                        .map_err(|e| CliError::BadgeError(BadgeError::FileIo(value.clone(), e)))?;
+                    let reader = BufReader::new(&file);
+                    badge.add_png_message(msg_number, reader)?;
                 }
                 Arg {
                     id: CliArgumentId::s,
@@ -278,8 +274,10 @@ fn main() {
                     id: CliArgumentId::o,
                     value,
                 } => {
-                    let path = Path::new(value.as_ref().unwrap());
-                    badge.write_to_png_file(msg_number, path)?;
+                    let file = File::create(Path::new(&value.as_ref().unwrap()))
+                        .map_err(|e| CliError::BadgeError(BadgeError::FileIo(value.clone(), e)))?;
+                    let writer = BufWriter::new(&file);
+                    badge.write_to_png(msg_number, writer)?;
                     disable_send_to_badge = true;
                 }
                 Arg {

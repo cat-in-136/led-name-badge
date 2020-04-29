@@ -1,19 +1,16 @@
 use std::convert::TryFrom;
 use std::fmt;
 use std::fmt::{Debug, Formatter};
-use std::fs::File;
-use std::io::{BufReader, BufWriter, Read, Write};
+use std::io::{Read, Write};
 #[cfg(test)]
 use std::io::Cursor;
 use std::mem;
 use std::ops::RangeInclusive;
-use std::path::Path;
 use std::str::FromStr;
 
 use hidapi::{HidApi, HidDevice};
 
 pub use crate::badge::error::BadgeError;
-use crate::badge::error::BadgeError::PngWriteError;
 use crate::badge::text::{find_font, render_text};
 
 mod error;
@@ -260,22 +257,6 @@ impl Badge {
         }
     }
 
-    /// Add Png-file message
-    pub fn add_png_file_message(&mut self, msg_num: usize, path: &Path) -> Result<(), BadgeError> {
-        if msg_num >= N_MESSAGES {
-            Err(BadgeError::MessageNumberOutOfRange(msg_num))
-        } else {
-            let file = File::open(path).map_err(|e| (path, e))?;
-            let reader = BufReader::new(file);
-
-            let mut pixel_data = image_io::read_png_to_badge_message(reader).map_err(|e| {
-                BadgeError::PngReadError(path.to_str().map_or(None, |v| Some(v.to_string())), e)
-            })?;
-            mem::swap(&mut self.messages[msg_num].data, &mut pixel_data);
-            Ok(())
-        }
-    }
-
     /// Set effect pattern
     pub fn set_effect_pattern(
         &mut self,
@@ -386,21 +367,6 @@ impl Badge {
             let message_data = self.messages[msg_num].data.as_slice();
             image_io::write_badge_message_to_png(message_data, writer)
                 .map_err(|e| BadgeError::PngWriteError(None, e))
-        }
-    }
-
-    /// Write png data to file instead of the badge
-    pub fn write_to_png_file(&self, msg_num: usize, path: &Path) -> Result<(), BadgeError> {
-        if msg_num >= N_MESSAGES {
-            Err(BadgeError::MessageNumberOutOfRange(msg_num))
-        } else if self.messages[msg_num].data.is_empty() {
-            Err(BadgeError::NoDataToWrite)
-        } else {
-            let message_data = self.messages[msg_num].data.as_slice();
-            let file = File::open(path).map_err(|e| (path, e))?;
-            let ref mut w = BufWriter::new(file);
-            image_io::write_badge_message_to_png(message_data, w)
-                .map_err(|e| PngWriteError(path.to_str().map_or(None, |v| Some(v.to_string())), e))
         }
     }
 }
@@ -542,13 +508,4 @@ fn test_write_to_png() {
         &png_data[0..8],
         &[0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]
     );
-}
-
-#[test]
-fn test_write_to_png_file() {
-    let badge = Badge::new().unwrap();
-
-    let path = Path::new("");
-    assert!(badge.write_to_png_file(N_MESSAGES, path).is_err());
-    // Success case is not tested in this function.
 }
