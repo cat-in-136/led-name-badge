@@ -1,7 +1,5 @@
 extern crate euclid;
 
-use std::iter::FromIterator;
-
 use euclid::Point2D;
 use euclid::Size2D;
 use font_kit::canvas::{Canvas, Format, RasterizationOptions};
@@ -22,9 +20,9 @@ use crate::badge::error::BadgeError;
 /// Return Err if no font is matched to given font_names or if failed to load the font.
 pub(crate) fn find_font(font_names: &[&str]) -> Result<Font, BadgeError> {
     let family_names = font_names.iter().map(|&v| String::from(v));
-    let family_names = Vec::from_iter(family_names.map(|v| FamilyName::Title(v)));
+    let family_names = family_names.map(|v| FamilyName::Title(v));
     let font = SystemSource::new()
-        .select_best_match(&family_names.as_slice(), &Properties::new())
+        .select_best_match(&family_names.collect::<Vec<_>>(), &Properties::new())
         .map_err(|err| BadgeError::FontNotFound(err))?
         .load()
         .map_err(|err| BadgeError::FontLoading(err))?;
