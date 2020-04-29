@@ -1,7 +1,7 @@
 extern crate hidapi;
 
 use core::fmt;
-use std::fmt::Formatter;
+use core::fmt::Formatter;
 use std::fs::File;
 use std::io::{BufReader, BufWriter, Read};
 use std::path::Path;

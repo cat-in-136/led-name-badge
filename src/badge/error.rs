@@ -1,8 +1,9 @@
 use core::fmt;
+use core::fmt::Debug;
+use std::error;
 
 use font_kit::error::{FontLoadingError, SelectionError};
 use hidapi::HidError;
-use png::DecodingError;
 
 use crate::badge::image_io::{BadgeImageReadError, BadgeImageWriteError};
 
@@ -68,21 +69,7 @@ impl fmt::Display for BadgeError {
                 } else {
                     "Could not read png data:".to_string()
                 };
-                let msg_detail = match error {
-                    BadgeImageReadError::PngDecodeError(decoding_error) => match decoding_error {
-                        DecodingError::IoError(e) => format!("{}", e),
-                        DecodingError::Format(data) => data.to_string(),
-                        DecodingError::InvalidSignature => {
-                            ("Broken File (Invalid signature)".to_string())
-                        }
-                        DecodingError::CrcMismatch { .. } => "Broken file (CRC Error)".to_string(),
-                        DecodingError::Other(data) => data.to_string(),
-                        DecodingError::CorruptFlateStream => "Corrupted Flate Stream".to_string(),
-                        DecodingError::LimitsExceeded => "Limits Exceeded".to_string(),
-                    },
-                    BadgeImageReadError::UnsupportedPngError(data) => data.to_string(),
-                };
-                f.write_fmt(format_args!("{}{}", msg_summary, msg_detail))
+                f.write_fmt(format_args!("{}{}", msg_summary, error))
             }
             PngWriteError(path, error) => {
                 let msg_summary = if let Some(path) = path {
@@ -90,12 +77,29 @@ impl fmt::Display for BadgeError {
                 } else {
                     "Could not read png data:".to_string()
                 };
-                let msg_detail = match error {
-                    BadgeImageWriteError::PngEncodeError(e) => format!("{}", e),
-                };
-                f.write_fmt(format_args!("{}{}", msg_summary, msg_detail))
+                f.write_fmt(format_args!("{}{}", msg_summary, error))
             }
             NoDataToWrite => f.write_str("No data to write"),
+        }
+    }
+}
+
+impl error::Error for BadgeError {
+    fn source(&self) -> Option<&(dyn error::Error + 'static)> {
+        match self {
+            BadgeError::BadgeNotFound => None,
+            BadgeError::MultipleBadgeFound => None,
+            BadgeError::CouldNotOpenDevice(e) => Some(e),
+            BadgeError::MessageNumberOutOfRange(_) => None,
+            BadgeError::WrongSpeed => None,
+            BadgeError::WrongBrightness => None,
+            BadgeError::HidIo(e) => Some(e),
+            BadgeError::FontNotFound(e) => Some(e),
+            BadgeError::FontLoading(e) => Some(e),
+            BadgeError::FileIo(_, e) => Some(e),
+            BadgeError::PngReadError(_, e) => Some(e),
+            BadgeError::PngWriteError(_, e) => Some(e),
+            BadgeError::NoDataToWrite => None,
         }
     }
 }

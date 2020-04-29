@@ -1,3 +1,6 @@
+use core::fmt;
+use core::fmt::{Debug, Formatter};
+use std::error;
 use std::io::{Read, Write};
 #[cfg(test)]
 use std::io::Cursor;
@@ -11,9 +14,62 @@ pub enum BadgeImageWriteError {
     PngEncodeError(EncodingError),
 }
 
+impl fmt::Display for BadgeImageWriteError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            BadgeImageWriteError::PngEncodeError(e) => (e as &dyn fmt::Display).fmt(f),
+        }
+    }
+}
+
+impl error::Error for BadgeImageWriteError {
+    fn source(&self) -> Option<&(dyn error::Error + 'static)> {
+        match self {
+            BadgeImageWriteError::PngEncodeError(e) => Some(e),
+        }
+    }
+}
+
 impl From<EncodingError> for BadgeImageWriteError {
     fn from(e: EncodingError) -> Self {
         BadgeImageWriteError::PngEncodeError(e)
+    }
+}
+
+#[derive(Debug)]
+pub enum BadgeImageReadError {
+    PngDecodeError(DecodingError),
+    UnsupportedPngError(String),
+}
+
+impl fmt::Display for BadgeImageReadError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            BadgeImageReadError::PngDecodeError(decoding_error) => match decoding_error {
+                DecodingError::IoError(e) => (e as &dyn fmt::Display).fmt(f),
+                DecodingError::Format(data) => f.write_str(data.as_ref()),
+                DecodingError::InvalidSignature => f.write_str("Broken File (Invalid signature)"),
+                DecodingError::CrcMismatch { .. } => f.write_str("Broken file (CRC Error)"),
+                DecodingError::Other(data) => f.write_str(data.as_ref()),
+                DecodingError::CorruptFlateStream => f.write_str("Corrupted Flate Stream"),
+                DecodingError::LimitsExceeded => f.write_str("Limits Exceeded"),
+            },
+            BadgeImageReadError::UnsupportedPngError(data) => f.write_str(data.as_ref()),
+        }
+    }
+}
+impl error::Error for BadgeImageReadError {
+    fn source(&self) -> Option<&(dyn error::Error + 'static)> {
+        match self {
+            BadgeImageReadError::PngDecodeError(e) => Some(e),
+            BadgeImageReadError::UnsupportedPngError(_) => None,
+        }
+    }
+}
+
+impl From<DecodingError> for BadgeImageReadError {
+    fn from(e: DecodingError) -> Self {
+        BadgeImageReadError::PngDecodeError(e)
     }
 }
 
@@ -94,18 +150,6 @@ fn test_write_badge_message_to_png() {
     let mut png_pixels = vec![0; (info.width * info.height) as usize];
     reader.next_frame(&mut png_pixels).unwrap();
     assert_eq!(png_pixels, sample_pixels);
-}
-
-#[derive(Debug)]
-pub enum BadgeImageReadError {
-    PngDecodeError(DecodingError),
-    UnsupportedPngError(String),
-}
-
-impl From<DecodingError> for BadgeImageReadError {
-    fn from(e: DecodingError) -> Self {
-        BadgeImageReadError::PngDecodeError(e)
-    }
 }
 
 pub fn read_png_to_badge_message<R: Read>(reader: R) -> Result<Vec<u8>, BadgeImageReadError> {
