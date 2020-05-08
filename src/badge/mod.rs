@@ -373,11 +373,11 @@ impl Badge {
 
 #[test]
 fn test_badge_new() {
-    assert!(Badge::new().is_ok());
+    assert!(matches!(Badge::new(), Ok(_)));
 }
 
 #[test]
-fn add_png_message() {
+fn test_add_png_message() {
     let mut badge = Badge::new().unwrap();
 
     let valid_8x11_png = vec![
@@ -390,10 +390,16 @@ fn add_png_message() {
     let corrupted_data = vec![0; 1];
 
     let reader = Cursor::new(&valid_8x11_png);
-    assert!(badge.add_png_message(N_MESSAGES, reader).is_err());
+    assert!(matches!(
+        badge.add_png_message(N_MESSAGES, reader),
+        Err(BadgeError::MessageNumberOutOfRange(N_MESSAGES))
+    ));
 
     let reader = Cursor::new(&corrupted_data);
-    assert!(badge.add_png_message(N_MESSAGES - 1, reader).is_err());
+    assert!(matches!(
+        badge.add_png_message(N_MESSAGES - 1, reader),
+        Err(BadgeError::PngReadError(None, _))
+    ));
 
     let reader = Cursor::new(&valid_8x11_png);
     assert!(badge.add_png_message(N_MESSAGES - 1, reader).is_ok());
@@ -408,14 +414,18 @@ fn test_badge_add_text_message() {
     let mut badge = Badge::new().unwrap();
     let font_names = &["Liberation Sans", "Arial"];
 
-    assert!(badge.add_text_message(N_MESSAGES, "", font_names).is_err());
+    assert!(matches!(
+        badge.add_text_message(N_MESSAGES, "", font_names),
+        Err(BadgeError::MessageNumberOutOfRange(N_MESSAGES))
+    ));
 
-    assert!(badge
-        .add_text_message(N_MESSAGES - 1, "", font_names)
-        .is_ok());
+    assert!(matches!(
+        badge.add_text_message(N_MESSAGES - 1, "", font_names),
+        Ok(())
+    ));
     assert!(badge.messages[N_MESSAGES - 1].data.iter().all(|&v| v == 0));
 
-    assert!(badge.add_text_message(0, "A", font_names).is_ok());
+    assert!(matches!(badge.add_text_message(0, "A", font_names), Ok(())));
     assert!(badge.messages[0].data.iter().any(|&v| v != 0));
 }
 
@@ -423,19 +433,24 @@ fn test_badge_add_text_message() {
 fn test_badge_set_effect_pattern() {
     let mut badge = Badge::new().unwrap();
 
-    assert!(badge
-        .set_effect_pattern(N_MESSAGES, BadgeEffect::Left)
-        .is_err());
+    assert!(matches!(
+        badge.set_effect_pattern(N_MESSAGES, BadgeEffect::Left),
+        Err(BadgeError::MessageNumberOutOfRange(N_MESSAGES))
+    ));
 
-    assert!(badge
-        .set_effect_pattern(N_MESSAGES - 1, BadgeEffect::Laser)
-        .is_ok());
+    assert!(matches!(
+        badge.set_effect_pattern(N_MESSAGES - 1, BadgeEffect::Laser),
+        Ok(())
+    ));
     assert_eq!(
         badge.header.line_conf[N_MESSAGES - 1] & 0x0f,
         BadgeEffect::Laser as u8
     );
 
-    assert!(badge.set_effect_pattern(0, BadgeEffect::Left).is_ok());
+    assert!(matches!(
+        badge.set_effect_pattern(0, BadgeEffect::Left),
+        Ok(())
+    ));
     assert_eq!(badge.header.line_conf[0] & 0x0f, BadgeEffect::Left as u8);
 }
 
@@ -443,14 +458,23 @@ fn test_badge_set_effect_pattern() {
 fn test_badge_set_effect_speed() {
     let mut badge = Badge::new().unwrap();
 
-    assert!(badge.set_effect_speed(N_MESSAGES, 1).is_err());
+    assert!(matches!(
+        badge.set_effect_speed(N_MESSAGES, 1),
+        Err(BadgeError::MessageNumberOutOfRange(N_MESSAGES))
+    ));
 
-    assert!(badge.set_effect_speed(0, 0).is_err());
-    assert!(badge.set_effect_speed(0, 9).is_err());
+    assert!(matches!(
+        badge.set_effect_speed(0, 0),
+        Err(BadgeError::WrongSpeed)
+    ));
+    assert!(matches!(
+        badge.set_effect_speed(0, 9),
+        Err(BadgeError::WrongSpeed)
+    ));
 
-    assert!(badge.set_effect_speed(0, 1).is_ok());
+    assert!(matches!(badge.set_effect_speed(0, 1), Ok(())));
     assert_eq!(badge.header.line_conf[0] & 0xf0, 0 << 4);
-    assert!(badge.set_effect_speed(N_MESSAGES - 1, 8).is_ok());
+    assert!(matches!(badge.set_effect_speed(N_MESSAGES - 1, 8), Ok(())));
     assert_eq!(badge.header.line_conf[N_MESSAGES - 1] & 0xf0, 7 << 4);
 }
 
@@ -458,14 +482,23 @@ fn test_badge_set_effect_speed() {
 fn test_badge_set_effect_blink() {
     let mut badge = Badge::new().unwrap();
 
-    assert!(badge.set_effect_blink(N_MESSAGES, true).is_err());
+    assert!(matches!(
+        badge.set_effect_blink(N_MESSAGES, true),
+        Err(BadgeError::MessageNumberOutOfRange(N_MESSAGES))
+    ));
 
-    assert!(badge.set_effect_blink(N_MESSAGES - 1, true).is_ok());
+    assert!(matches!(
+        badge.set_effect_blink(N_MESSAGES - 1, true),
+        Ok(())
+    ));
     assert_eq!(
         badge.header.flash & (1 << (N_MESSAGES as u8 - 1)),
         (1 << (N_MESSAGES as u8 - 1))
     );
-    assert!(badge.set_effect_blink(N_MESSAGES - 1, false).is_ok());
+    assert!(matches!(
+        badge.set_effect_blink(N_MESSAGES - 1, false),
+        Ok(())
+    ));
     assert_eq!(
         badge.header.flash & (1 << (N_MESSAGES as u8 - 1)),
         (0 << (N_MESSAGES as u8 - 1))
@@ -476,14 +509,23 @@ fn test_badge_set_effect_blink() {
 fn test_badge_set_effect_frame() {
     let mut badge = Badge::new().unwrap();
 
-    assert!(badge.set_effect_frame(N_MESSAGES, true).is_err());
+    assert!(matches!(
+        badge.set_effect_frame(N_MESSAGES, true),
+        Err(BadgeError::MessageNumberOutOfRange(N_MESSAGES))
+    ));
 
-    assert!(badge.set_effect_frame(N_MESSAGES - 1, true).is_ok());
+    assert!(matches!(
+        badge.set_effect_frame(N_MESSAGES - 1, true),
+        Ok(())
+    ));
     assert_eq!(
         badge.header.border & (1 << (N_MESSAGES as u8 - 1)),
         (1 << (N_MESSAGES as u8 - 1))
     );
-    assert!(badge.set_effect_frame(N_MESSAGES - 1, false).is_ok());
+    assert!(matches!(
+        badge.set_effect_frame(N_MESSAGES - 1, false),
+        Ok(())
+    ));
     assert_eq!(
         badge.header.border & (1 << (N_MESSAGES as u8 - 1)),
         (0 << (N_MESSAGES as u8 - 1))
@@ -495,15 +537,24 @@ fn test_write_to_png() {
     let mut badge = Badge::new().unwrap();
 
     let mut png_data = Vec::<u8>::new();
-    assert!(badge.write_to_png(N_MESSAGES, &mut png_data).is_err());
+    assert!(matches!(
+        badge.write_to_png(N_MESSAGES, &mut png_data),
+        Err(BadgeError::MessageNumberOutOfRange(N_MESSAGES))
+    ));
 
     let mut png_data = Vec::<u8>::new();
-    assert!(badge.write_to_png(N_MESSAGES - 1, &mut png_data).is_err());
+    assert!(matches!(
+        badge.write_to_png(N_MESSAGES - 1, &mut png_data),
+        Err(BadgeError::NoDataToWrite)
+    ));
 
     badge.messages[N_MESSAGES - 1].data = vec![0; BADGE_MSG_FONT_HEIGHT];
     let mut png_data = Vec::<u8>::new();
     let mut w = Cursor::new(&mut png_data);
-    assert!(badge.write_to_png(N_MESSAGES - 1, w.get_mut()).is_ok());
+    assert!(matches!(
+        badge.write_to_png(N_MESSAGES - 1, w.get_mut()),
+        Ok(())
+    ));
     assert_eq!(
         &png_data[0..8],
         &[0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]
