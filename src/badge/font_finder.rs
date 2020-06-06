@@ -1,32 +1,28 @@
 use std::ffi::{CStr, CString};
 use std::fmt;
-use std::fmt::Formatter;
 use std::marker::PhantomData;
-use std::mem::MaybeUninit;
 use std::os::raw::{c_char, c_int};
-use std::path::{Path, PathBuf};
-use std::ptr::{null, null_mut};
+use std::path::PathBuf;
+use std::ptr::null_mut;
 use std::sync::Once;
 
 use fontconfig::fontconfig::{
-    FC_SLANT_ROMAN, FC_WEIGHT_REGULAR, FcChar8, FcConfig, FcConfigSubstitute,
-    FcDefaultSubstitute, FcFontMatch, FcInitLoadConfigAndFonts, FcMatchPattern, FcPattern,
-    FcPatternAddInteger, FcPatternAddString, FcPatternCreate, FcPatternDestroy, FcPatternGetInteger,
-    FcPatternGetString, FcResultMatch, FcResultNoMatch,
+    FcChar8, FcConfig, FcConfigSubstitute, FcDefaultSubstitute, FcFontMatch,
+    FcInitLoadConfigAndFonts, FcMatchPattern, FcPattern, FcPatternAddInteger, FcPatternAddString,
+    FcPatternCreate, FcPatternDestroy, FcPatternGetInteger, FcPatternGetString, FcResultMatch,
+    FcResultNoMatch,
 };
 
-use crate::badge::font_finder::FontFinderError::FontConfigError;
-
 static INIT_FC: Once = Once::new();
-static mut FontConfig: *mut FcConfig = null_mut();
+static mut FC_CONFIG: *mut FcConfig = null_mut();
 
 /// Initialize font finder.
 fn init() -> Result<(), FontFinderError> {
     INIT_FC.call_once(|| unsafe {
-        FontConfig = FcInitLoadConfigAndFonts();
+        FC_CONFIG = FcInitLoadConfigAndFonts();
     });
 
-    if unsafe { FontConfig }.is_null() {
+    if unsafe { FC_CONFIG }.is_null() {
         Err(FontFinderError::FontConfigError("FcInit"))
     } else {
         Ok(())
@@ -34,7 +30,7 @@ fn init() -> Result<(), FontFinderError> {
 }
 
 /// Describes font finder error
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum FontFinderError {
     /// Caused by fontconfig internal error
     FontConfigError(&'static str),
@@ -138,11 +134,11 @@ impl<'a> FontPattern<'a> {
     /// Get matcher pattern i.e. wrapper function to `FcFontMatch`
     fn font_match(&mut self) -> Option<Self> {
         let font_pat = unsafe {
-            FcConfigSubstitute(FontConfig, self.pattern, FcMatchPattern);
+            FcConfigSubstitute(FC_CONFIG, self.pattern, FcMatchPattern);
             FcDefaultSubstitute(self.pattern);
 
             let mut result = FcResultNoMatch;
-            FcFontMatch(FontConfig, self.pattern, &mut result)
+            FcFontMatch(FC_CONFIG, self.pattern, &mut result)
         };
 
         if font_pat.is_null() {
