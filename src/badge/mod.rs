@@ -11,7 +11,7 @@ use std::str::FromStr;
 use hidapi::{HidApi, HidDevice};
 
 pub use crate::badge::error::BadgeError;
-use crate::badge::text::{find_font, render_text};
+use crate::badge::text::render_text;
 
 mod error;
 mod image_io;
@@ -233,9 +233,8 @@ impl Badge {
         } else if msg.len() == 0 {
             Ok(()) // Do nothing
         } else {
-            let font = find_font(font_names)?;
             let font_size = BADGE_MSG_FONT_HEIGHT as u32;
-            let mut pixel_data = render_text(msg, font_size, &font);
+            let mut pixel_data = render_text(msg, font_size)?;
             mem::swap(&mut self.messages[msg_num].data, &mut pixel_data);
             Ok(())
         }

@@ -1,76 +1,42 @@
-extern crate euclid;
+use freetype::{Error, Library};
+use freetype::face::LoadFlag;
+use freetype::freetype_sys::FT_Pos;
 
-use euclid::Point2D;
-use euclid::Size2D;
-use font_kit::canvas::{Canvas, Format, RasterizationOptions};
-use font_kit::error::GlyphLoadingError;
-use font_kit::family_name::FamilyName;
-use font_kit::font::Font;
-use font_kit::hinting::HintingOptions;
-use font_kit::loader::FontTransform;
-use font_kit::properties::Properties;
-use font_kit::source::SystemSource;
+const FONT_PATH: &str = "/usr/share/fonts/adobe-source-code-pro/SourceCodePro-Regular.otf";
 
-use crate::badge::error::BadgeError;
-
-/// A continence method to find font and returns a Font.
-///
-/// # Errors
-///
-/// Return Err if no font is matched to given font_names or if failed to load the font.
-pub(crate) fn find_font(font_names: &[&str]) -> Result<Font, BadgeError> {
-    let family_names = font_names.iter().map(|&v| String::from(v));
-    let family_names = family_names.map(|v| FamilyName::Title(v));
-    let font = SystemSource::new()
-        .select_best_match(&family_names.collect::<Vec<_>>(), &Properties::new())
-        .map_err(|err| BadgeError::FontNotFound(err))?
-        .load()
-        .map_err(|err| BadgeError::FontLoading(err))?;
-
-    Ok(font)
+#[derive(Debug)]
+struct Canvas {
+    width: usize,
+    height: usize,
+    pixels: Vec<u8>,
 }
 
-#[test]
-fn test_find_font() {
-    let font = SystemSource::new()
-        .select_best_match(
-            &[
-                FamilyName::Title(String::from("Liberation Sans")),
-                FamilyName::Title(String::from("Arial")),
-                FamilyName::SansSerif,
-            ],
-            &Properties::new(),
-        )
-        .unwrap()
-        .load()
-        .unwrap();
-
-    assert_eq!(
-        find_font(&["Liberation Sans", "Arial"])
-            .unwrap()
-            .family_name(),
-        font.family_name()
-    );
-    assert!(find_font(&[]).is_err());
-    assert!(find_font(&["NOT-EXIST-FONT-NAME"]).is_err());
+impl Canvas {
+    fn new(width: usize, height: usize) -> Self {
+        let pixels = vec![0; width * height];
+        Self {
+            width,
+            height,
+            pixels,
+        }
+    }
 }
 
 /// Convert the canvas data into the led badge message data.
 fn canvas2vec(canvas: &Canvas) -> Vec<u8> {
-    let canvas_size = canvas.size;
-    let data_width = (canvas_size.width as usize + 7) / 8;
-    let data_height = canvas_size.height as usize;
+    let data_width = (canvas.width + 7) / 8;
+    let data_height = canvas.height;
 
     let mut data = vec![0; data_width * data_height];
     for (i, &v) in canvas.pixels.iter().enumerate() {
         if v > 0 {
-            let canvas_x = i % canvas_size.width as usize;
-            let canvas_y = i / canvas_size.width as usize;
+            let canvas_x = i % canvas.width;
+            let canvas_y = i / canvas.width;
 
             let data_x = canvas_x / 8;
             let data_offset = canvas_x % 8;
             let data_y = canvas_y;
-            let data_index = data_x * canvas_size.height as usize + data_y;
+            let data_index = data_x * canvas.height + data_y;
 
             data[data_index] |= 0x80u8 >> data_offset as u8;
         }
@@ -88,9 +54,8 @@ fn test_canvas2vec() {
             1, 0, 1, 0, 1, 0, 1, 0, 1, 1, 1, 1, 0, 0, 0, 0,
             1, 1, 0, 0, 1, 1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1,
         ],
-        size: Size2D::new(16, 2),
-        stride: 0,
-        format: Format::A8,
+        width: 16,
+        height: 2,
     };
     assert_eq!(canvas2vec(&canvas), vec);
 
@@ -103,86 +68,73 @@ fn test_canvas2vec() {
             1, 0, 1, 0, 1, 0, 1, 0, 1, 1, 1, 1, 0, 0, 0, 0, 1,
             1, 1, 0, 0, 1, 1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1,
         ],
-        size: Size2D::new(17, 2),
-        stride: 0,
-        format: Format::A8,
+        width: 17,
+        height: 2,
     };
     assert_eq!(canvas2vec(&canvas), vec);
 }
 
 /// Render text with given font configuration and return the led badge message data.
-pub(crate) fn render_text(text: &str, font_size: u32, font: &Font) -> Vec<u8> {
-    let width = text
-        .chars()
-        .map(|c| font.glyph_for_char(c))
-        .fold(0u32, |x, v| {
-            x + v
-                .ok_or(GlyphLoadingError::NoSuchGlyph)
-                .and_then(|glyph_id| {
-                    font.raster_bounds(
-                        glyph_id,
-                        font_size as f32,
-                        &FontTransform::identity(),
-                        &Point2D::new(x as f32, font_size as f32),
-                        HintingOptions::None,
-                        RasterizationOptions::Bilevel,
-                    )
-                })
-                .and_then(|bounds| Ok(bounds.size.width as u32))
-                .unwrap_or(0)
-        });
+pub(crate) fn render_text(text: &str, pixel_height: u32) -> Result<Vec<u8>, Error> {
+    let lib = Library::init()?;
+    let face = lib.new_face(FONT_PATH, 0)?;
+    fn ftpos2pixel(p: FT_Pos) -> usize {
+        p as usize / 64usize
+    }
 
-    let mut canvas = Canvas::new(&Size2D::new(width, font_size), Format::A8);
-    text.chars()
-        .map(|c| font.glyph_for_char(c))
-        .fold(0u32, |x, v| {
-            x + v
-                .ok_or(GlyphLoadingError::NoSuchGlyph)
-                .and_then(|glyph_id| {
-                    font.rasterize_glyph(
-                        &mut canvas,
-                        glyph_id,
-                        font_size as f32,
-                        &FontTransform::identity(),
-                        &Point2D::new(x as f32, font_size as f32),
-                        HintingOptions::None,
-                        RasterizationOptions::Bilevel,
-                    )
-                    .and(Ok(glyph_id))
-                })
-                .and_then(|glyph_id| {
-                    font.raster_bounds(
-                        glyph_id,
-                        font_size as f32,
-                        &FontTransform::identity(),
-                        &Point2D::new(x as f32, font_size as f32),
-                        HintingOptions::None,
-                        RasterizationOptions::Bilevel,
-                    )
-                })
-                .and_then(|bounds| Ok(bounds.size.width as u32))
-                .unwrap_or(0)
-        });
+    if face.is_scalable() {
+        face.set_pixel_sizes(0, pixel_height)?;
+    }
 
-    canvas2vec(&canvas)
+    let mut canvas = {
+        let mut width = 0;
+        for c in text.chars() {
+            face.load_char(c as usize, LoadFlag::RENDER | LoadFlag::TARGET_MONO)?;
+            width += ftpos2pixel(face.glyph().advance().x);
+        }
+        Canvas::new(width, pixel_height as usize)
+    };
+
+    let mut pen_x = 0;
+    for c in text.chars() {
+        face.load_char(c as usize, LoadFlag::RENDER | LoadFlag::TARGET_MONO)?;
+        let glyph = face.glyph();
+        let bitmap = glyph.bitmap();
+        let buffer = bitmap.buffer();
+
+        let face_metrics = face.size_metrics().unwrap();
+        let metrics = glyph.metrics();
+        let pitch = bitmap.pitch() as usize;
+        let rows = bitmap.rows() as usize;
+        let pen_start_x = pen_x + ftpos2pixel(metrics.horiBearingX);
+        let pen_start_y = if face_metrics.ascender == 0 {
+            0 // some font does not have ascend.
+        } else {
+            ftpos2pixel(face_metrics.ascender) - ftpos2pixel(metrics.horiBearingY) // TODO
+        };
+
+        for q in 0..rows {
+            for p in 0..pitch {
+                for i in 0..8usize {
+                    let pixel_val = buffer[q * pitch + p] & (0x80 >> i) as u8;
+                    let canvas_x = pen_start_x + p * 8 + i;
+                    let canvas_y = pen_start_y + q;
+                    if pixel_val != 0 && canvas_x < canvas.width && canvas_y < canvas.height {
+                        canvas.pixels[canvas_y * canvas.width + canvas_x] = 1;
+                    }
+                }
+            }
+        }
+
+        pen_x += ftpos2pixel(glyph.advance().x);
+    }
+
+    Ok(canvas2vec(&canvas))
 }
 
 #[test]
 fn test_render_text() {
-    let font = SystemSource::new()
-        .select_best_match(
-            &[
-                FamilyName::Title(String::from("Liberation Sans")),
-                FamilyName::Title(String::from("Arial")),
-                FamilyName::SansSerif,
-            ],
-            &Properties::new(),
-        )
-        .unwrap()
-        .load()
-        .unwrap();
-
-    let pixel_data = render_text("Test!", 10, &font);
+    let pixel_data = render_text("Test!", 10).unwrap();
     assert!(pixel_data.len() > 0);
     assert_eq!(pixel_data.len() % 10, 0);
     assert_eq!(pixel_data.iter().all(|v| *v == 0), false);
