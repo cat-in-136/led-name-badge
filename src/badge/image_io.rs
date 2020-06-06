@@ -130,7 +130,10 @@ fn test_write_badge_message_to_png() {
 
     let mut png_data = Vec::<u8>::new();
     let mut w = Cursor::new(&mut png_data);
-    assert!(matches!(write_badge_message_to_png(&sample_data, w.get_mut()), Ok(())));
+    assert!(matches!(
+        write_badge_message_to_png(&sample_data, w.get_mut()),
+        Ok(())
+    ));
 
     assert_eq!(
         &png_data[0..8],
