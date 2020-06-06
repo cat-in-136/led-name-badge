@@ -14,6 +14,7 @@ pub use crate::badge::error::BadgeError;
 use crate::badge::text::render_text;
 
 mod error;
+mod font_finder;
 mod image_io;
 mod text;
 
