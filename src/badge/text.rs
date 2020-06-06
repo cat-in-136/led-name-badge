@@ -76,11 +76,15 @@ fn test_canvas2vec() {
 
 /// Render text with given font configuration and return the led badge message data.
 pub(crate) fn render_text(text: &str, pixel_height: u32) -> Result<Vec<u8>, Error> {
-    let lib = Library::init()?;
-    let face = lib.new_face(FONT_PATH, 0)?;
     fn ftpos2pixel(p: FT_Pos) -> usize {
         p as usize / 64usize
     }
+    fn pixel2ftpos(p: usize) -> FT_Pos {
+        p as i64 * 64
+    }
+
+    let lib = Library::init()?;
+    let face = lib.new_face(FONT_PATH, 0)?;
 
     if face.is_scalable() {
         face.set_pixel_sizes(0, pixel_height)?;
@@ -110,7 +114,11 @@ pub(crate) fn render_text(text: &str, pixel_height: u32) -> Result<Vec<u8>, Erro
         let pen_start_y = if face_metrics.ascender == 0 {
             0 // some font does not have ascend.
         } else {
-            ftpos2pixel(face_metrics.ascender) - ftpos2pixel(metrics.horiBearingY) // TODO
+            ftpos2pixel(
+                pixel2ftpos(pixel_height as usize)
+                    - (-face_metrics.descender)
+                    - metrics.horiBearingY,
+            )
         };
 
         for q in 0..rows {
