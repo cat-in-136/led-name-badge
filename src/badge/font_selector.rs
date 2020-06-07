@@ -1,6 +1,5 @@
 use std::{error, fmt};
 use std::ffi::{CStr, CString};
-use std::marker::PhantomData;
 use std::os::raw::{c_char, c_int};
 use std::path::PathBuf;
 use std::ptr::null_mut;
@@ -57,28 +56,23 @@ impl error::Error for FontSelectorError {
 
 /// Wrapper of `FcPattern`
 #[derive(Debug)]
-pub struct FontPattern<'a> {
+pub struct FontPattern {
     pattern: *mut FcPattern,
-    phantom: PhantomData<&'a FcPattern>,
 }
 
-impl<'a> FontPattern<'a> {
+impl FontPattern {
     /// Create a new pattern
     fn new() -> Result<Self, FontSelectorError> {
         init()?;
         Ok(Self {
             pattern: unsafe { FcPatternCreate() },
-            phantom: PhantomData,
         })
     }
 
     /// Create a new instance from raw pointer
     fn from_pattern(pattern: *mut FcPattern) -> Result<Self, FontSelectorError> {
         init()?;
-        Ok(Self {
-            pattern,
-            phantom: PhantomData,
-        })
+        Ok(Self { pattern })
     }
 
     /// Add a string to the pattern i.e. wrapper function to `FcPatternAddString`
@@ -201,7 +195,7 @@ fn test_font_match() {
     assert_eq!(font_pattern.get_integer("index", 0), Some(0));
 }
 
-impl<'a> Drop for FontPattern<'a> {
+impl Drop for FontPattern {
     fn drop(&mut self) {
         unsafe { FcPatternDestroy(self.pattern) }
     }
