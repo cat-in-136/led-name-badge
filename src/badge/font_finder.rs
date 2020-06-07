@@ -1,5 +1,5 @@
+use std::{error, fmt};
 use std::ffi::{CStr, CString};
-use std::fmt;
 use std::marker::PhantomData;
 use std::os::raw::{c_char, c_int};
 use std::path::PathBuf;
@@ -23,7 +23,7 @@ fn init() -> Result<(), FontFinderError> {
     });
 
     if unsafe { FC_CONFIG }.is_null() {
-        Err(FontFinderError::FontConfigError("FcInit"))
+        Err(FontFinderError::FontConfigError)
     } else {
         Ok(())
     }
@@ -33,7 +33,7 @@ fn init() -> Result<(), FontFinderError> {
 #[derive(Debug, Clone)]
 pub enum FontFinderError {
     /// Caused by fontconfig internal error
-    FontConfigError(&'static str),
+    FontConfigError,
     /// Font Not Found
     FontNotFound(String),
 }
@@ -41,13 +41,17 @@ pub enum FontFinderError {
 impl fmt::Display for FontFinderError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            FontFinderError::FontConfigError(error) => {
-                f.write_fmt(format_args!("Internal Error: {}", error))
-            }
+            FontFinderError::FontConfigError => f.write_str("Internal Error"),
             FontFinderError::FontNotFound(fonts) => {
                 f.write_fmt(format_args!("Font Not Found: {}", fonts))
             }
         }
+    }
+}
+
+impl error::Error for FontFinderError {
+    fn source(&self) -> Option<&(dyn error::Error + 'static)> {
+        None
     }
 }
 
