@@ -92,15 +92,15 @@ impl FontPattern {
         let object = name_c.as_ptr() as *const c_char;
 
         let mut s = null_mut();
-        unsafe {
-            if FcPatternGetString(*&self.pattern, object, n as c_int, &mut s) == FcResultMatch {
-                let str = CStr::from_ptr(s as *mut c_char)
-                    .to_string_lossy()
-                    .into_owned();
-                Some(str)
-            } else {
-                None
-            }
+        if unsafe { FcPatternGetString(*&self.pattern, object, n as c_int, &mut s) }
+            == FcResultMatch
+        {
+            let str = unsafe { CStr::from_ptr(s as *mut c_char) }
+                .to_string_lossy()
+                .into_owned();
+            Some(str)
+        } else {
+            None
         }
     }
 
@@ -110,7 +110,6 @@ impl FontPattern {
         let object = name_c.as_ptr() as *const c_char;
 
         let i = val as c_int;
-
         unsafe { FcPatternAddInteger(self.pattern, object, i) };
     }
 
@@ -120,12 +119,12 @@ impl FontPattern {
         let object = name_c.as_ptr() as *const c_char;
 
         let mut i = 0 as c_int;
-        unsafe {
-            if FcPatternGetInteger(*&self.pattern, object, n as c_int, &mut i) == FcResultMatch {
-                Some(i)
-            } else {
-                None
-            }
+        if unsafe { FcPatternGetInteger(*&self.pattern, object, n as c_int, &mut i) }
+            == FcResultMatch
+        {
+            Some(i)
+        } else {
+            None
         }
     }
 
@@ -135,8 +134,8 @@ impl FontPattern {
             FcConfigSubstitute(FC_CONFIG, self.pattern, FcMatchPattern);
             FcDefaultSubstitute(self.pattern);
 
-            let mut result = FcResultNoMatch;
-            FcFontMatch(FC_CONFIG, self.pattern, &mut result)
+            let mut _result = FcResultNoMatch;
+            FcFontMatch(FC_CONFIG, self.pattern, &mut _result)
         };
 
         if font_pat.is_null() {
