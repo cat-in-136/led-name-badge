@@ -5,6 +5,7 @@ use std::error;
 use freetype::Error as FtError;
 use hidapi::HidError;
 
+use crate::badge::font_finder::FontFinderError;
 use crate::badge::image_io::{BadgeImageReadError, BadgeImageWriteError};
 
 /// Describes an error related to the LED Badge operation
@@ -24,6 +25,8 @@ pub enum BadgeError {
     WrongBrightness,
     /// HID IO Error.
     HidIo(HidError),
+    /// Font Not Found
+    FontNotFound(FontFinderError),
     /// Font Loading Error
     FontLoading(FtError),
     /// File IO Error related to specific file
@@ -52,6 +55,7 @@ impl fmt::Display for BadgeError {
             WrongSpeed => f.write_str("Wrong speed value"),
             WrongBrightness => f.write_str("Wrong brightness value"),
             HidIo(_error) => f.write_str("Device IO Error"),
+            FontNotFound(error) => f.write_fmt(format_args!("Failed to find font: {}", error)),
             FontLoading(error) => f.write_fmt(format_args!("Failed to load font: {}", error)),
             FileIo(path, error) => {
                 if let Some(path) = path {
@@ -91,12 +95,19 @@ impl error::Error for BadgeError {
             BadgeError::WrongSpeed => None,
             BadgeError::WrongBrightness => None,
             BadgeError::HidIo(e) => Some(e),
+            BadgeError::FontNotFound(e) => Some(e),
             BadgeError::FontLoading(e) => Some(e),
             BadgeError::FileIo(_, e) => Some(e),
             BadgeError::PngReadError(_, e) => Some(e),
             BadgeError::PngWriteError(_, e) => Some(e),
             BadgeError::NoDataToWrite => None,
         }
+    }
+}
+
+impl From<FontFinderError> for BadgeError {
+    fn from(e: FontFinderError) -> Self {
+        BadgeError::FontNotFound(e)
     }
 }
 

@@ -1,8 +1,8 @@
+use std::path::Path;
+
 use freetype::{Error, Library};
 use freetype::face::LoadFlag;
 use freetype::freetype_sys::FT_Pos;
-
-const FONT_PATH: &str = "/usr/share/fonts/adobe-source-code-pro/SourceCodePro-Regular.otf";
 
 #[derive(Debug)]
 struct Canvas {
@@ -75,7 +75,12 @@ fn test_canvas2vec() {
 }
 
 /// Render text with given font configuration and return the led badge message data.
-pub(crate) fn render_text(text: &str, pixel_height: u32) -> Result<Vec<u8>, Error> {
+pub(crate) fn render_text(
+    text: &str,
+    pixel_height: usize,
+    font_path: &Path,
+    font_index: usize,
+) -> Result<Vec<u8>, Error> {
     fn ftpos2pixel(p: FT_Pos) -> usize {
         p as usize / 64usize
     }
@@ -84,10 +89,10 @@ pub(crate) fn render_text(text: &str, pixel_height: u32) -> Result<Vec<u8>, Erro
     }
 
     let lib = Library::init()?;
-    let face = lib.new_face(FONT_PATH, 0)?;
+    let face = lib.new_face(font_path, font_index as isize)?;
 
     if face.is_scalable() {
-        face.set_pixel_sizes(0, pixel_height)?;
+        face.set_pixel_sizes(0, pixel_height as u32)?;
     }
 
     let mut canvas = {
@@ -96,7 +101,7 @@ pub(crate) fn render_text(text: &str, pixel_height: u32) -> Result<Vec<u8>, Erro
             face.load_char(c as usize, LoadFlag::RENDER | LoadFlag::TARGET_MONO)?;
             width += ftpos2pixel(face.glyph().advance().x);
         }
-        Canvas::new(width, pixel_height as usize)
+        Canvas::new(width, pixel_height)
     };
 
     let mut pen_x = 0;
@@ -142,7 +147,10 @@ pub(crate) fn render_text(text: &str, pixel_height: u32) -> Result<Vec<u8>, Erro
 
 #[test]
 fn test_render_text() {
-    let pixel_data = render_text("Test!", 10).unwrap();
+    use crate::badge::font_finder::find_font;
+    let (font_path, font_index) = find_font(&["Liberation Sans", "Arial"], Some(10)).unwrap();
+
+    let pixel_data = render_text("Test!", 10, font_path.as_ref(), font_index).unwrap();
     assert!(pixel_data.len() > 0);
     assert_eq!(pixel_data.len() % 10, 0);
     assert_eq!(pixel_data.iter().all(|v| *v == 0), false);
