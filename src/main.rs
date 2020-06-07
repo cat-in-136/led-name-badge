@@ -48,6 +48,7 @@ enum CliArgumentId {
     i,
     t,
     T,
+    F,
     p,
     s,
     e,
@@ -77,6 +78,12 @@ fn parse_arguments() -> Result<Box<[ArgValue<CliArgumentId>]>, ArgParseError> {
             'T',
             Some("file".to_string()),
             "Message text read from file".to_string(),
+        ),
+        Arg::new(
+            CliArgumentId::F,
+            'F',
+            Some("font".to_string()),
+            "Font family name".to_string(),
         ),
         Arg::new(
             CliArgumentId::p,
@@ -161,6 +168,8 @@ fn main() {
         let mut badge = Badge::new()?;
         let mut msg_number = 0;
         let mut disable_send_to_badge = false;
+        let mut font_family = Vec::with_capacity(1);
+        const DEFAULT_FONT_FAMILY: [&'static str; 2] = ["Liberation Sans", "Arial"];
 
         for v in option.iter() {
             use ArgValue::*;
@@ -182,11 +191,13 @@ fn main() {
                     id: CliArgumentId::t,
                     value,
                 } => {
-                    badge.add_text_message(
-                        msg_number,
-                        &value.as_ref().unwrap(),
-                        &["Liberation Sans", "Arial"],
-                    )?;
+                    let font_names = if font_family.is_empty() {
+                        DEFAULT_FONT_FAMILY.as_ref()
+                    } else {
+                        font_family.as_ref()
+                    };
+
+                    badge.add_text_message(msg_number, &value.as_ref().unwrap(), font_names)?;
                 }
                 Arg {
                     id: CliArgumentId::T,
@@ -200,11 +211,22 @@ fn main() {
                     })()
                     .map_err(|e| CliError::BadgeError(BadgeError::FileIo(value.clone(), e)))?;
 
-                    badge.add_text_message(
-                        msg_number,
-                        msg.as_str(),
-                        &["Liberation Sans", "Arial"],
-                    )?;
+                    let font_names = if font_family.is_empty() {
+                        DEFAULT_FONT_FAMILY.as_ref()
+                    } else {
+                        font_family.as_ref()
+                    };
+
+                    badge.add_text_message(msg_number, msg.as_str(), font_names)?;
+                }
+                Arg {
+                    id: CliArgumentId::F,
+                    value,
+                } => {
+                    if !font_family.is_empty() {
+                        font_family.clear();
+                    }
+                    font_family.push(value.as_ref().unwrap().as_str());
                 }
                 Arg {
                     id: CliArgumentId::p,
