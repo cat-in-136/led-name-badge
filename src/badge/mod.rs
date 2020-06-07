@@ -6,6 +6,7 @@ use std::io::{Read, Write};
 use std::io::Cursor;
 use std::mem;
 use std::ops::RangeInclusive;
+use std::path::PathBuf;
 use std::str::FromStr;
 
 use hidapi::{HidApi, HidDevice};
@@ -235,9 +236,20 @@ impl Badge {
         } else if msg.len() == 0 {
             Ok(()) // Do nothing
         } else {
-            let (font_path, font_index) = select_font(font_names, Some(BADGE_MSG_FONT_HEIGHT))?;
-            let mut pixel_data =
-                render_text(msg, BADGE_MSG_FONT_HEIGHT, font_path.as_ref(), font_index)?;
+            let pixel_height = BADGE_MSG_FONT_HEIGHT;
+            let (font_path, font_index) = font_names
+                .get(0)
+                .and_then(|&v| {
+                    let path = PathBuf::from(v);
+                    if path.exists() {
+                        Some(Ok((path, 0)))
+                    } else {
+                        None
+                    }
+                })
+                .unwrap_or_else(|| select_font(font_names, Some(pixel_height)))?;
+
+            let mut pixel_data = render_text(msg, pixel_height, font_path.as_ref(), font_index)?;
             mem::swap(&mut self.messages[msg_num].data, &mut pixel_data);
             Ok(())
         }

@@ -83,7 +83,7 @@ fn parse_arguments() -> Result<Box<[ArgValue<CliArgumentId>]>, ArgParseError> {
             CliArgumentId::F,
             'F',
             Some("font".to_string()),
-            "Font family name".to_string(),
+            "Font family name or font file path".to_string(),
         ),
         Arg::new(
             CliArgumentId::p,
