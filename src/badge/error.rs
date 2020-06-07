@@ -5,7 +5,7 @@ use std::error;
 use freetype::Error as FtError;
 use hidapi::HidError;
 
-use crate::badge::font_finder::FontFinderError;
+use crate::badge::font_selector::FontSelectorError;
 use crate::badge::image_io::{BadgeImageReadError, BadgeImageWriteError};
 
 /// Describes an error related to the LED Badge operation
@@ -26,7 +26,7 @@ pub enum BadgeError {
     /// HID IO Error.
     HidIo(HidError),
     /// Font Not Found
-    FontNotFound(FontFinderError),
+    FontNotFound(FontSelectorError),
     /// Font Loading Error
     FontLoading(FtError),
     /// File IO Error related to specific file
@@ -105,8 +105,8 @@ impl error::Error for BadgeError {
     }
 }
 
-impl From<FontFinderError> for BadgeError {
-    fn from(e: FontFinderError) -> Self {
+impl From<FontSelectorError> for BadgeError {
+    fn from(e: FontSelectorError) -> Self {
         BadgeError::FontNotFound(e)
     }
 }

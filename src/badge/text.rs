@@ -147,8 +147,8 @@ pub(crate) fn render_text(
 
 #[test]
 fn test_render_text() {
-    use crate::badge::font_finder::find_font;
-    let (font_path, font_index) = find_font(&["Liberation Sans", "Arial"], Some(10)).unwrap();
+    use crate::badge::font_selector::select_font;
+    let (font_path, font_index) = select_font(&["Liberation Sans", "Arial"], Some(10)).unwrap();
 
     let pixel_data = render_text("Test!", 10, font_path.as_ref(), font_index).unwrap();
     assert!(pixel_data.len() > 0);

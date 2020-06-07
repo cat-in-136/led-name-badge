@@ -11,11 +11,11 @@ use std::str::FromStr;
 use hidapi::{HidApi, HidDevice};
 
 pub use crate::badge::error::BadgeError;
-use crate::badge::font_finder::find_font;
+use crate::badge::font_selector::select_font;
 use crate::badge::text::render_text;
 
 mod error;
-mod font_finder;
+mod font_selector;
 mod image_io;
 mod text;
 
@@ -235,7 +235,7 @@ impl Badge {
         } else if msg.len() == 0 {
             Ok(()) // Do nothing
         } else {
-            let (font_path, font_index) = find_font(font_names, Some(BADGE_MSG_FONT_HEIGHT))?;
+            let (font_path, font_index) = select_font(font_names, Some(BADGE_MSG_FONT_HEIGHT))?;
             let mut pixel_data =
                 render_text(msg, BADGE_MSG_FONT_HEIGHT, font_path.as_ref(), font_index)?;
             mem::swap(&mut self.messages[msg_num].data, &mut pixel_data);

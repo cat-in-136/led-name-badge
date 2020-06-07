@@ -17,13 +17,13 @@ static INIT_FC: Once = Once::new();
 static mut FC_CONFIG: *mut FcConfig = null_mut();
 
 /// Initialize font finder.
-fn init() -> Result<(), FontFinderError> {
+fn init() -> Result<(), FontSelectorError> {
     INIT_FC.call_once(|| unsafe {
         FC_CONFIG = FcInitLoadConfigAndFonts();
     });
 
     if unsafe { FC_CONFIG }.is_null() {
-        Err(FontFinderError::FontConfigError)
+        Err(FontSelectorError::FontConfigError)
     } else {
         Ok(())
     }
@@ -31,25 +31,25 @@ fn init() -> Result<(), FontFinderError> {
 
 /// Describes font finder error
 #[derive(Debug, Clone)]
-pub enum FontFinderError {
+pub enum FontSelectorError {
     /// Caused by fontconfig internal error
     FontConfigError,
     /// Font Not Found
     FontNotFound(String),
 }
 
-impl fmt::Display for FontFinderError {
+impl fmt::Display for FontSelectorError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            FontFinderError::FontConfigError => f.write_str("Internal Error"),
-            FontFinderError::FontNotFound(fonts) => {
+            FontSelectorError::FontConfigError => f.write_str("Internal Error"),
+            FontSelectorError::FontNotFound(fonts) => {
                 f.write_fmt(format_args!("Font Not Found: {}", fonts))
             }
         }
     }
 }
 
-impl error::Error for FontFinderError {
+impl error::Error for FontSelectorError {
     fn source(&self) -> Option<&(dyn error::Error + 'static)> {
         None
     }
@@ -64,7 +64,7 @@ pub struct FontPattern<'a> {
 
 impl<'a> FontPattern<'a> {
     /// Create a new pattern
-    fn new() -> Result<Self, FontFinderError> {
+    fn new() -> Result<Self, FontSelectorError> {
         init()?;
         Ok(Self {
             pattern: unsafe { FcPatternCreate() },
@@ -73,7 +73,7 @@ impl<'a> FontPattern<'a> {
     }
 
     /// Create a new instance from raw pointer
-    fn from_pattern(pattern: *mut FcPattern) -> Result<Self, FontFinderError> {
+    fn from_pattern(pattern: *mut FcPattern) -> Result<Self, FontSelectorError> {
         init()?;
         Ok(Self {
             pattern,
@@ -207,12 +207,17 @@ impl<'a> Drop for FontPattern<'a> {
     }
 }
 
-pub(crate) fn find_font(
+/// Select font and returns font path and index
+///
+/// # Errors
+///
+/// Return Err if no font is matched to given font_names
+pub(crate) fn select_font(
     font_names: &[&str],
     font_size: Option<usize>,
-) -> Result<(PathBuf, usize), FontFinderError> {
+) -> Result<(PathBuf, usize), FontSelectorError> {
     if font_names.is_empty() {
-        return Err(FontFinderError::FontNotFound("-".to_string()));
+        return Err(FontSelectorError::FontNotFound("-".to_string()));
     }
 
     let mut pattern = FontPattern::new()?;
@@ -233,16 +238,16 @@ pub(crate) fn find_font(
         })
         .ok_or_else(|| {
             let x = font_names.join(", ");
-            FontFinderError::FontNotFound(x)
+            FontSelectorError::FontNotFound(x)
         })
 }
 
 #[test]
-fn test_find_font() {
+fn test_select_font() {
     assert!(matches!(
-        find_font(&["Liberation Sans", "Arial"], None),
+        select_font(&["Liberation Sans", "Arial"], None),
         Ok((_, 0))
     ));
-    assert!(find_font(&[], None).is_err());
+    assert!(select_font(&[], None).is_err());
     // assert!(find_font(&["NOT-EXIST-FONT-NAME"], Some(1)).is_err());
 }
