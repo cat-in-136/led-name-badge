@@ -2,10 +2,7 @@ use std::mem;
 
 use hidapi::{HidApi, HidDevice};
 
-use crate::badge::{
-    Badge, BADGE_BRIGHTNESS_RANGE, BADGE_MSG_FONT_HEIGHT, BADGE_SPEED_RANGE, BadgeEffect,
-    BadgeError, DISP_SIZE, N_MESSAGES,
-};
+use crate::badge::{Badge, BADGE_MSG_FONT_HEIGHT, BadgeEffect, BadgeError, DISP_SIZE, N_MESSAGES};
 
 /// Vendor ID of the LED Badge
 const BADGE_VID: u16 = 0x0416;
@@ -38,75 +35,46 @@ impl BadgeHeader {
     }
 
     /// Set effect pattern
-    fn set_effect_pattern(&mut self, msg_num: usize, pat: BadgeEffect) -> Result<(), BadgeError> {
-        if msg_num >= N_MESSAGES {
-            Err(BadgeError::MessageNumberOutOfRange(msg_num))
-        } else {
-            self.line_conf[msg_num] = (self.line_conf[msg_num] & 0xF0u8) | (pat as u8);
-            Ok(())
-        }
+    fn set_effect_pattern(&mut self, msg_num: usize, pat: BadgeEffect) {
+        self.line_conf[msg_num] = (self.line_conf[msg_num] & 0xF0u8) | (pat as u8);
     }
 
     /// Set effect speed
-    fn set_effect_speed(&mut self, msg_num: usize, spd: u8) -> Result<(), BadgeError> {
-        if msg_num >= N_MESSAGES {
-            Err(BadgeError::MessageNumberOutOfRange(msg_num))
-        } else if !BADGE_SPEED_RANGE.contains(&spd) {
-            Err(BadgeError::WrongSpeed)
-        } else {
-            self.line_conf[msg_num] = ((spd - 1) << 4) | (self.line_conf[msg_num] & 0x0Fu8);
-            Ok(())
-        }
+    fn set_effect_speed(&mut self, msg_num: usize, spd: u8) {
+        self.line_conf[msg_num] = ((spd - 1) << 4) | (self.line_conf[msg_num] & 0x0Fu8);
     }
 
     /// Set effect blink
-    fn set_effect_blink(&mut self, msg_num: usize, blink: bool) -> Result<(), BadgeError> {
-        if msg_num >= N_MESSAGES {
-            Err(BadgeError::MessageNumberOutOfRange(msg_num))
-        } else {
-            self.flash &= !(0x01u8 << msg_num as u8);
-            self.flash |= (blink as u8) << msg_num as u8;
-            Ok(())
-        }
+    fn set_effect_blink(&mut self, msg_num: usize, blink: bool) {
+        self.flash &= !(0x01u8 << msg_num as u8);
+        self.flash |= (blink as u8) << msg_num as u8;
     }
 
     /// Set effects
-    fn set_effect_frame(&mut self, msg_num: usize, frame: bool) -> Result<(), BadgeError> {
-        if msg_num >= N_MESSAGES {
-            Err(BadgeError::MessageNumberOutOfRange(msg_num))
-        } else {
-            self.border &= !(0x01u8 << msg_num as u8);
-            self.border |= (frame as u8) << msg_num as u8;
-            Ok(())
-        }
+    fn set_effect_frame(&mut self, msg_num: usize, frame: bool) {
+        self.border &= !(0x01u8 << msg_num as u8);
+        self.border |= (frame as u8) << msg_num as u8;
     }
 
     /// Set brightness
-    fn set_brightness(&mut self, br: u8) -> Result<(), BadgeError> {
-        if !BADGE_BRIGHTNESS_RANGE.contains(&br) {
-            Err(BadgeError::WrongBrightness)
-        } else {
-            self.brightness = (br as u8) << 4;
-            Ok(())
-        }
+    fn set_brightness(&mut self, br: u8) {
+        self.brightness = (br as u8) << 4;
     }
 
     /// Load from badge object
-    fn load(&mut self, badge: &Badge) -> Result<(), BadgeError> {
-        self.set_brightness(badge.brightness)?;
+    fn load(&mut self, badge: &Badge) {
+        self.set_brightness(badge.brightness);
         for i in 0..N_MESSAGES {
             let message = &badge.messages[i];
 
-            self.set_effect_blink(i, message.blink)?;
-            self.set_effect_frame(i, message.frame)?;
-            self.set_effect_speed(i, message.speed)?;
-            self.set_effect_pattern(i, message.effect)?;
+            self.set_effect_blink(i, message.blink);
+            self.set_effect_frame(i, message.frame);
+            self.set_effect_speed(i, message.speed);
+            self.set_effect_pattern(i, message.effect);
 
             let msg_len = message.data.len() / BADGE_MSG_FONT_HEIGHT;
             self.msg_len[i] = (msg_len as u16).to_be();
         }
-
-        Ok(())
     }
 }
 
@@ -114,24 +82,13 @@ impl BadgeHeader {
 fn test_badge_header_set_effect_pattern() {
     let mut header: BadgeHeader = Default::default();
 
-    assert!(matches!(
-        header.set_effect_pattern(N_MESSAGES, BadgeEffect::Left),
-        Err(BadgeError::MessageNumberOutOfRange(N_MESSAGES))
-    ));
-
-    assert!(matches!(
-        header.set_effect_pattern(N_MESSAGES - 1, BadgeEffect::Laser),
-        Ok(())
-    ));
+    header.set_effect_pattern(N_MESSAGES - 1, BadgeEffect::Laser);
     assert_eq!(
         header.line_conf[N_MESSAGES - 1] & 0x0f,
         BadgeEffect::Laser as u8
     );
 
-    assert!(matches!(
-        header.set_effect_pattern(0, BadgeEffect::Left),
-        Ok(())
-    ));
+    header.set_effect_pattern(0, BadgeEffect::Left);
     assert_eq!(header.line_conf[0] & 0x0f, BadgeEffect::Left as u8);
 }
 
@@ -139,23 +96,9 @@ fn test_badge_header_set_effect_pattern() {
 fn test_badge_header_set_effect_speed() {
     let mut header: BadgeHeader = Default::default();
 
-    assert!(matches!(
-        header.set_effect_speed(N_MESSAGES, 1),
-        Err(BadgeError::MessageNumberOutOfRange(N_MESSAGES))
-    ));
-
-    assert!(matches!(
-        header.set_effect_speed(0, 0),
-        Err(BadgeError::WrongSpeed)
-    ));
-    assert!(matches!(
-        header.set_effect_speed(0, 9),
-        Err(BadgeError::WrongSpeed)
-    ));
-
-    assert!(matches!(header.set_effect_speed(0, 1), Ok(())));
+    header.set_effect_speed(0, 1);
     assert_eq!(header.line_conf[0] & 0xf0, 0 << 4);
-    assert!(matches!(header.set_effect_speed(N_MESSAGES - 1, 8), Ok(())));
+    header.set_effect_speed(N_MESSAGES - 1, 8);
     assert_eq!(header.line_conf[N_MESSAGES - 1] & 0xf0, 7 << 4);
 }
 
@@ -163,23 +106,12 @@ fn test_badge_header_set_effect_speed() {
 fn test_badge_header_set_effect_blink() {
     let mut header: BadgeHeader = Default::default();
 
-    assert!(matches!(
-        header.set_effect_blink(N_MESSAGES, true),
-        Err(BadgeError::MessageNumberOutOfRange(N_MESSAGES))
-    ));
-
-    assert!(matches!(
-        header.set_effect_blink(N_MESSAGES - 1, true),
-        Ok(())
-    ));
+    header.set_effect_blink(N_MESSAGES - 1, true);
     assert_eq!(
         header.flash & (1 << (N_MESSAGES as u8 - 1)),
         (1 << (N_MESSAGES as u8 - 1))
     );
-    assert!(matches!(
-        header.set_effect_blink(N_MESSAGES - 1, false),
-        Ok(())
-    ));
+    header.set_effect_blink(N_MESSAGES - 1, false);
     assert_eq!(
         header.flash & (1 << (N_MESSAGES as u8 - 1)),
         (0 << (N_MESSAGES as u8 - 1))
@@ -190,23 +122,12 @@ fn test_badge_header_set_effect_blink() {
 fn test_badge_header_set_effect_frame() {
     let mut header: BadgeHeader = Default::default();
 
-    assert!(matches!(
-        header.set_effect_frame(N_MESSAGES, true),
-        Err(BadgeError::MessageNumberOutOfRange(N_MESSAGES))
-    ));
-
-    assert!(matches!(
-        header.set_effect_frame(N_MESSAGES - 1, true),
-        Ok(())
-    ));
+    header.set_effect_frame(N_MESSAGES - 1, true);
     assert_eq!(
         header.border & (1 << (N_MESSAGES as u8 - 1)),
         (1 << (N_MESSAGES as u8 - 1))
     );
-    assert!(matches!(
-        header.set_effect_frame(N_MESSAGES - 1, false),
-        Ok(())
-    ));
+    header.set_effect_frame(N_MESSAGES - 1, false);
     assert_eq!(
         header.border & (1 << (N_MESSAGES as u8 - 1)),
         (0 << (N_MESSAGES as u8 - 1))
@@ -260,7 +181,7 @@ pub fn s1144_send(badge: &mut Badge) -> Result<(), BadgeError> {
     let device = s1144_open()?;
 
     let mut header = BadgeHeader::default();
-    header.load(badge)?;
+    header.load(badge);
 
     let mut disp_buf: Vec<u8> = Vec::with_capacity(DISP_SIZE);
     for i in 0..N_MESSAGES {
