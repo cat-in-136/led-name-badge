@@ -9,6 +9,7 @@ use std::str::FromStr;
 
 use crate::arg_parser::{App, Arg, ArgParseError, ArgValue};
 use crate::badge::{Badge, BADGE_BRIGHTNESS_RANGE, BADGE_SPEED_RANGE, BadgeEffect, BadgeError};
+use crate::badge::device::BadgeType;
 
 mod arg_parser;
 mod badge;
@@ -311,7 +312,7 @@ fn main() {
         }
 
         if !disable_send_to_badge {
-            badge.send()?;
+            badge.send(BadgeType::S1144)?;
         }
         Ok(0)
     })()

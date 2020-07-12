@@ -9,21 +9,16 @@ use std::ops::RangeInclusive;
 use std::path::PathBuf;
 use std::str::FromStr;
 
-use hidapi::{HidApi, HidDevice};
-
+use crate::badge::device::{BadgeType, s1144};
 pub use crate::badge::error::BadgeError;
 use crate::badge::font_selector::select_font;
 use crate::badge::text::render_text;
 
+pub mod device;
 mod error;
 mod font_selector;
 mod image_io;
 mod text;
-
-/// Vendor ID of the LED Badge
-const BADGE_VID: u16 = 0x0416;
-/// Product ID of the LED Badge
-const BADGE_PID: u16 = 0x5020;
 
 /// Number of messages stored in the LED Badge
 pub const N_MESSAGES: usize = 8;
@@ -191,31 +186,6 @@ pub struct Badge {
 }
 
 impl Badge {
-    /// Open a LED badge device
-    ///
-    /// # Errors
-    ///
-    /// If failed to open a LED badge, then an error is returned.
-    fn open() -> Result<HidDevice, BadgeError> {
-        let api = HidApi::new()?;
-
-        match api
-            .device_list()
-            .filter(|info| info.vendor_id() == BADGE_VID && info.product_id() == BADGE_PID)
-            .count()
-        {
-            0 => Err(BadgeError::BadgeNotFound),
-            1 => Ok(()),
-            _ => Err(BadgeError::MultipleBadgeFound),
-        }?;
-
-        let device = api
-            .open(BADGE_VID, BADGE_PID)
-            .map_err(|e| BadgeError::CouldNotOpenDevice(e))?;
-
-        Ok(device)
-    }
-
     /// Create Badge config entity
     pub fn new() -> Result<Self, BadgeError> {
         Ok(Badge {
@@ -335,40 +305,12 @@ impl Badge {
     ///
     /// # Errors
     ///
-    /// If failed to write the data to the device, then an error is returned.
-    pub fn send(&mut self) -> Result<(), BadgeError> {
-        let device = Badge::open()?;
-
-        let mut disp_buf: Vec<u8> = Vec::with_capacity(DISP_SIZE);
-        for i in 0..N_MESSAGES {
-            let msg_len = self.messages[i].data.len() / BADGE_MSG_FONT_HEIGHT;
-            self.header.msg_len[i] = (msg_len as u16).to_be();
-            disp_buf.extend_from_slice(self.messages[i].data.as_ref());
+    /// If failed to write the data to the device, then an error is returned.\
+    pub fn send(&mut self, badge_type: BadgeType) -> Result<(), BadgeError> {
+        match badge_type {
+            BadgeType::S1144 => s1144::s1144_send(self),
+            BadgeType::B1248 => unimplemented!(),
         }
-
-        const PAYLOAD_SIZE: usize = 64;
-        const REPORT_BUF_LEN: usize = PAYLOAD_SIZE + 1;
-        let disp_buf = disp_buf;
-
-        {
-            let mut report_buf: Vec<u8> = Vec::with_capacity(REPORT_BUF_LEN);
-            report_buf.push(0u8);
-            report_buf.extend_from_slice(unsafe { self.header.as_slice() });
-            report_buf.resize(REPORT_BUF_LEN, 0u8);
-            device.write(report_buf.as_slice())?;
-        }
-
-        for i in (0..disp_buf.len()).step_by(PAYLOAD_SIZE) {
-            let disp_buf_range = i..((i + PAYLOAD_SIZE).min(disp_buf.len()));
-
-            let mut report_buf: Vec<u8> = Vec::with_capacity(REPORT_BUF_LEN);
-            report_buf.push(0u8);
-            report_buf.extend_from_slice(disp_buf[disp_buf_range].as_ref());
-            report_buf.resize(REPORT_BUF_LEN, 0u8);
-            device.write(report_buf.as_slice())?;
-        }
-
-        Ok(())
     }
 
     /// Write png data to the writer instead of badge
