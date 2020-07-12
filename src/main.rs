@@ -312,7 +312,7 @@ fn main() {
         }
 
         if !disable_send_to_badge {
-            badge.send(BadgeType::S1144)?;
+            badge.send(BadgeType::B1248)?; // TODO How to switch...?
         }
         Ok(0)
     })()

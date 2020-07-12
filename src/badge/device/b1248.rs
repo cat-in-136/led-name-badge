@@ -10,9 +10,6 @@ const BADGE_VID: u16 = 0x0483;
 /// Product ID of the LED Badge
 const BADGE_PID: u16 = 0x5750;
 
-const PAYLOAD_SIZE: usize = 63;
-const REPORT_BUF_LEN: usize = PAYLOAD_SIZE + 1;
-
 /// Message Offset/Length information in the Badge Protocol Configuration (second report to send)
 #[derive(Debug, Copy, Clone)]
 #[repr(C)]
@@ -25,6 +22,14 @@ struct BadgeMessageOffsetLength {
     reserved: u8,
     /// message length
     length: u8,
+}
+
+impl BadgeMessageOffsetLength {
+    /// Transmutes into a slice from the field.
+    unsafe fn as_slice(&self) -> &[u8] {
+        let view = self as *const _ as *const u8;
+        std::slice::from_raw_parts(view, mem::size_of::<Self>())
+    }
 }
 
 impl Default for BadgeMessageOffsetLength {
@@ -50,9 +55,15 @@ struct BadgeMessageConfiguration {
 
 impl BadgeMessageConfiguration {
     /// Transmutes into a slice from the header.
-    unsafe fn as_slice(&self) -> &[u8] {
-        let view = self as *const _ as *const u8;
-        std::slice::from_raw_parts(view, mem::size_of::<Self>())
+    fn as_vec(&self) -> Vec<u8> {
+        let mut vec = Vec::with_capacity(N_MESSAGES * (1 + 4) + 2);
+        vec.push(0x00u8); // the first byte is zero
+        vec.extend_from_slice(&self.effect);
+        vec.push(0x00u8);
+        for i in 0..N_MESSAGES {
+            vec.extend_from_slice( unsafe {self.offset_length[i].as_slice() });
+        }
+        vec
     }
 
     /// Load from badge object
@@ -152,18 +163,21 @@ pub fn b1248_send(badge: &Badge) -> Result<(), BadgeError> {
     let mut msg_config = BadgeMessageConfiguration::default();
     msg_config.load(badge);
 
+    const PAYLOAD_SIZE: usize = 64;
+    const REPORT_BUF_LEN: usize = PAYLOAD_SIZE + 1;
+
     // first report -- "Hello"
     {
-        let mut report_buf = vec![0x48, 0x65, 0x6c, 0x6c, 0x6f]; // "Hello"
+        let mut report_buf = vec![0x00, 0x48, 0x65, 0x6c, 0x6c, 0x6f]; // "Hello"
         report_buf.resize(REPORT_BUF_LEN, 0u8);
         device.write(report_buf.as_slice()).unwrap();
     }
 
     // second report -- Message configuration
     {
-        let mut report_buf: Vec<u8> = Vec::with_capacity(REPORT_BUF_LEN);
+        let mut report_buf = Vec::with_capacity(REPORT_BUF_LEN);
         report_buf.push(0u8);
-        report_buf.extend_from_slice(unsafe { msg_config.as_slice() });
+        report_buf.extend_from_slice(&msg_config.as_vec());
         report_buf.resize(REPORT_BUF_LEN, 0u8);
         device.write(report_buf.as_slice())?;
     }
@@ -172,7 +186,7 @@ pub fn b1248_send(badge: &Badge) -> Result<(), BadgeError> {
     for j in 0..BADGE_MSG_FONT_HEIGHT {
         let mut report_buf: Vec<u8> = vec![0x00; REPORT_BUF_LEN];
         for msg_no in 0..N_MESSAGES {
-            let offset = msg_config.offset_length[msg_no].offset;
+            let offset = msg_config.offset_length[msg_no].offset + 1;
             for (i, &v) in badge.messages[msg_no]
                 .data
                 .iter()
