@@ -32,45 +32,6 @@ const DISP_SIZE: usize = 32767;
 /// Height of the message
 const BADGE_MSG_FONT_HEIGHT: usize = 11;
 
-/// Badge Protocol Header (first report to send)
-#[derive(Debug, Copy, Clone)]
-#[repr(C)]
-pub struct BadgeHeader {
-    /// magic: "wang",0x00
-    pub start: [u8; 5],
-    /// badge brightness
-    pub brightness: u8,
-    /// bit-coded: flash messages
-    pub flash: u8,
-    /// bit-coded: border messages
-    pub border: u8,
-    /// config of 8 lines; 0xAB : A-speed[1..8] , B-effect[0..8]
-    pub line_conf: [u8; 8],
-    /// length lines in BIG endian
-    pub msg_len: [u16; N_MESSAGES],
-}
-
-impl BadgeHeader {
-    /// Transmutes into a slice from the header.
-    unsafe fn as_slice(&self) -> &[u8] {
-        let view = self as *const _ as *const u8;
-        std::slice::from_raw_parts(view, mem::size_of::<Self>())
-    }
-}
-
-impl Default for BadgeHeader {
-    fn default() -> Self {
-        Self {
-            start: [0x77, 0x61, 0x6e, 0x67, 0x00], // "wang\0
-            brightness: 0,
-            flash: 0,
-            border: 0,
-            line_conf: [0x46, 0x41, 0x47, 0x48, 0x40, 0x44, 0x46, 0x47], // "FAGH@DFG"
-            msg_len: [0; N_MESSAGES],
-        }
-    }
-}
-
 /// Message effect type
 #[derive(Debug, PartialEq, Copy, Clone)]
 #[allow(dead_code)]
@@ -167,13 +128,25 @@ pub const BADGE_BRIGHTNESS_RANGE: RangeInclusive<u8> = 0..=4;
 /// Badge Protocol Header (first report to send)
 #[derive(Debug)]
 pub struct BadgeMessage {
+    /// blink (flash) messages
+    pub blink: bool,
+    /// frame (border) messages
+    pub frame: bool,
+    /// speed[1..8]
+    pub speed: u8,
+    /// effect[0..8]
+    pub effect: BadgeEffect,
     /// characters as bitmasks (8x11), stuffed together to fill the reports
-    data: Vec<u8>,
+    pub data: Vec<u8>,
 }
 
 impl Default for BadgeMessage {
     fn default() -> Self {
-        Self {
+        BadgeMessage {
+            blink: false,
+            frame: false,
+            speed: 0,
+            effect: BadgeEffect::Left,
             data: Vec::with_capacity(MAX_STR * BADGE_MSG_FONT_HEIGHT),
         }
     }
@@ -181,15 +154,17 @@ impl Default for BadgeMessage {
 
 /// Badge context
 pub struct Badge {
-    header: BadgeHeader,
-    messages: [BadgeMessage; N_MESSAGES],
+    /// badge brightness
+    pub brightness: u8,
+    /// message
+    pub messages: [BadgeMessage; N_MESSAGES],
 }
 
 impl Badge {
     /// Create Badge config entity
     pub fn new() -> Result<Self, BadgeError> {
         Ok(Badge {
-            header: Default::default(),
+            brightness: 7,
             messages: Default::default(),
         })
     }
@@ -250,8 +225,7 @@ impl Badge {
         if msg_num >= N_MESSAGES {
             Err(BadgeError::MessageNumberOutOfRange(msg_num))
         } else {
-            self.header.line_conf[msg_num] =
-                (self.header.line_conf[msg_num] & 0xF0u8) | (pat as u8);
+            self.messages[msg_num].effect = pat;
             Ok(())
         }
     }
@@ -263,8 +237,7 @@ impl Badge {
         } else if !BADGE_SPEED_RANGE.contains(&spd) {
             Err(BadgeError::WrongSpeed)
         } else {
-            self.header.line_conf[msg_num] =
-                ((spd - 1) << 4) | (self.header.line_conf[msg_num] & 0x0Fu8);
+            self.messages[msg_num].speed = spd;
             Ok(())
         }
     }
@@ -274,8 +247,7 @@ impl Badge {
         if msg_num >= N_MESSAGES {
             Err(BadgeError::MessageNumberOutOfRange(msg_num))
         } else {
-            self.header.flash &= !(0x01u8 << msg_num as u8);
-            self.header.flash |= (blink as u8) << msg_num as u8;
+            self.messages[msg_num].blink = blink;
             Ok(())
         }
     }
@@ -285,8 +257,7 @@ impl Badge {
         if msg_num >= N_MESSAGES {
             Err(BadgeError::MessageNumberOutOfRange(msg_num))
         } else {
-            self.header.border &= !(0x01u8 << msg_num as u8);
-            self.header.border |= (frame as u8) << msg_num as u8;
+            self.messages[msg_num].frame = frame;
             Ok(())
         }
     }
@@ -296,7 +267,7 @@ impl Badge {
         if !BADGE_BRIGHTNESS_RANGE.contains(&br) {
             Err(BadgeError::WrongBrightness)
         } else {
-            self.header.brightness = (br as u8) << 4;
+            self.brightness = br;
             Ok(())
         }
     }
@@ -398,16 +369,13 @@ fn test_badge_set_effect_pattern() {
         badge.set_effect_pattern(N_MESSAGES - 1, BadgeEffect::Laser),
         Ok(())
     ));
-    assert_eq!(
-        badge.header.line_conf[N_MESSAGES - 1] & 0x0f,
-        BadgeEffect::Laser as u8
-    );
+    assert_eq!(badge.messages[N_MESSAGES - 1].effect, BadgeEffect::Laser);
 
     assert!(matches!(
         badge.set_effect_pattern(0, BadgeEffect::Left),
         Ok(())
     ));
-    assert_eq!(badge.header.line_conf[0] & 0x0f, BadgeEffect::Left as u8);
+    assert_eq!(badge.messages[0].effect, BadgeEffect::Left);
 }
 
 #[test]
@@ -429,9 +397,9 @@ fn test_badge_set_effect_speed() {
     ));
 
     assert!(matches!(badge.set_effect_speed(0, 1), Ok(())));
-    assert_eq!(badge.header.line_conf[0] & 0xf0, 0 << 4);
+    assert_eq!(badge.messages[0].speed, 1);
     assert!(matches!(badge.set_effect_speed(N_MESSAGES - 1, 8), Ok(())));
-    assert_eq!(badge.header.line_conf[N_MESSAGES - 1] & 0xf0, 7 << 4);
+    assert_eq!(badge.messages[N_MESSAGES - 1].speed, 8);
 }
 
 #[test]
@@ -447,18 +415,12 @@ fn test_badge_set_effect_blink() {
         badge.set_effect_blink(N_MESSAGES - 1, true),
         Ok(())
     ));
-    assert_eq!(
-        badge.header.flash & (1 << (N_MESSAGES as u8 - 1)),
-        (1 << (N_MESSAGES as u8 - 1))
-    );
+    assert_eq!(badge.messages[N_MESSAGES - 1].blink, true);
     assert!(matches!(
         badge.set_effect_blink(N_MESSAGES - 1, false),
         Ok(())
     ));
-    assert_eq!(
-        badge.header.flash & (1 << (N_MESSAGES as u8 - 1)),
-        (0 << (N_MESSAGES as u8 - 1))
-    );
+    assert_eq!(badge.messages[N_MESSAGES - 1].blink, false);
 }
 
 #[test]
@@ -474,18 +436,12 @@ fn test_badge_set_effect_frame() {
         badge.set_effect_frame(N_MESSAGES - 1, true),
         Ok(())
     ));
-    assert_eq!(
-        badge.header.border & (1 << (N_MESSAGES as u8 - 1)),
-        (1 << (N_MESSAGES as u8 - 1))
-    );
+    assert_eq!(badge.messages[N_MESSAGES - 1].frame, true);
     assert!(matches!(
         badge.set_effect_frame(N_MESSAGES - 1, false),
         Ok(())
     ));
-    assert_eq!(
-        badge.header.border & (1 << (N_MESSAGES as u8 - 1)),
-        (0 << (N_MESSAGES as u8 - 1))
-    );
+    assert_eq!(badge.messages[N_MESSAGES - 1].frame, false);
 }
 
 #[test]
