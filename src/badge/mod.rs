@@ -9,7 +9,7 @@ use std::ops::RangeInclusive;
 use std::path::PathBuf;
 use std::str::FromStr;
 
-use crate::badge::device::{BadgeType, s1144};
+use crate::badge::device::BadgeType;
 pub use crate::badge::error::BadgeError;
 use crate::badge::font_selector::select_font;
 use crate::badge::text::render_text;
@@ -278,10 +278,7 @@ impl Badge {
     ///
     /// If failed to write the data to the device, then an error is returned.\
     pub fn send(&mut self, badge_type: BadgeType) -> Result<(), BadgeError> {
-        match badge_type {
-            BadgeType::S1144 => s1144::s1144_send(self),
-            BadgeType::B1248 => unimplemented!(),
-        }
+        device::device_send(badge_type, &self)
     }
 
     /// Write png data to the writer instead of badge

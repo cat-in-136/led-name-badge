@@ -177,7 +177,7 @@ fn s1144_open() -> Result<HidDevice, BadgeError> {
 /// # Errors
 ///
 /// If failed to write the data to the device, then an error is returned.
-pub fn s1144_send(badge: &mut Badge) -> Result<(), BadgeError> {
+pub fn s1144_send(badge: &Badge) -> Result<(), BadgeError> {
     let device = s1144_open()?;
 
     let mut header = BadgeHeader::default();
