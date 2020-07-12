@@ -19,6 +19,6 @@ pub enum BadgeType {
 pub fn device_send(badge_type: BadgeType, badge: &Badge) -> Result<(), BadgeError> {
     match badge_type {
         BadgeType::S1144 => s1144::s1144_send(badge),
-        BadgeType::B1248 => unimplemented!(),
+        BadgeType::B1248 => b1248::b1248_send(badge),
     }
 }
