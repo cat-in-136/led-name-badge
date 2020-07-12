@@ -145,7 +145,7 @@ impl Default for BadgeMessage {
         BadgeMessage {
             blink: false,
             frame: false,
-            speed: 0,
+            speed: 1,
             effect: BadgeEffect::Left,
             data: Vec::with_capacity(MAX_STR * BADGE_MSG_FONT_HEIGHT),
         }
