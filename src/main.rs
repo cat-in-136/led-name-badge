@@ -312,7 +312,7 @@ fn main() {
         }
 
         if !disable_send_to_badge {
-            badge.send(BadgeType::B1248)?; // TODO How to switch...?
+            badge.send(BadgeType::Auto)?;
         }
         Ok(0)
     })()
