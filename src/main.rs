@@ -9,6 +9,7 @@ use std::str::FromStr;
 
 use crate::arg_parser::{App, Arg, ArgParseError, ArgValue};
 use crate::badge::{Badge, BADGE_BRIGHTNESS_RANGE, BADGE_SPEED_RANGE, BadgeEffect, BadgeError};
+use crate::badge::device::BadgeType;
 
 mod arg_parser;
 mod badge;
@@ -121,7 +122,7 @@ fn parse_arguments() -> Result<Box<[ArgValue<CliArgumentId>]>, ArgParseError> {
             CliArgumentId::B,
             'B',
             Some("brightness".to_string()),
-            "LED brightness [0..3]".to_string(),
+            "LED brightness [0..3] (B1248: unused)".to_string(),
         ),
         Arg::new(
             CliArgumentId::o,
@@ -311,7 +312,7 @@ fn main() {
         }
 
         if !disable_send_to_badge {
-            badge.send()?;
+            badge.send(BadgeType::Auto)?;
         }
         Ok(0)
     })()
