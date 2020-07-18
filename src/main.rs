@@ -122,7 +122,7 @@ fn parse_arguments() -> Result<Box<[ArgValue<CliArgumentId>]>, ArgParseError> {
             CliArgumentId::B,
             'B',
             Some("brightness".to_string()),
-            "LED brightness [0..3]".to_string(),
+            "LED brightness [0..3] (B1248: ignored)".to_string(),
         ),
         Arg::new(
             CliArgumentId::o,
