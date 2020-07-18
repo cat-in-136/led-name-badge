@@ -30,6 +30,7 @@ To run, just run `cargo run -- -h`.
 * https://www.youtube.com/results?search_query=led+name+badge
 * HappyCodingRobot, [XANES X1 Programmable LED light badge protocoll reverse engineering](https://github.com/HappyCodingRobot/USB_LED_Badge/blob/master/doc/XANESX1ProgrammableLEDlightbadgeprotocollreverseengineering.md)
   * It was created with [HappyCodingRobot/USB_LED_Badge](https://github.com/HappyCodingRobot/USB_LED_Badge) as a reference.
+* [B1248 LED name badge protocol reverse engineering](https://cat-in-136.github.io/2020/07/b1248-led-name-badge-protocol-reverse-engineering.html)
 
 ## License
 
