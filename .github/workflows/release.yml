@@ -23,6 +23,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+    - run: sudo apt-get install libusb-1.0.0-dev libudev-dev libhidapi-dev
     - uses: actions/checkout@v2
     - name: Cache Cargo registry
       uses: actions/cache@v2
