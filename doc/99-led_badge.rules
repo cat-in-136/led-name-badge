@@ -1,0 +1,6 @@
+# XANES LED badge
+#SUBSYSTEMS=="usb", ATTRS{idVendor}=="0416", ATTRS{idProduct}=="5020", MODE="0660", GROUP="plugdev"
+SUBSYSTEMS=="usb", ATTRS{idVendor}=="0416", ATTRS{idProduct}=="5020", MODE="0666"
+#SUBSYSTEM=="hidraw", ACTION=="add", ATTRS{idVendor}=="0416", ATTRS{idProduct}=="5020", GROUP="plugdev"
+
+SUBSYSTEMS=="usb", ATTRS{idVendor}=="0483", ATTRS{idProduct}=="5750", MODE="0666"

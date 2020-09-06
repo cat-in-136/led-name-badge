@@ -3,6 +3,10 @@ name = "led-name-badge"
 version = "0.1.0"
 description = "USB LED name badge control tool"
 authors = ["@cat_in_136"]
+license = "MIT"
+readme = "README.md"
+keywords = ["led-badge"]
+categories = ["command-line-utilities"]
 edition = "2018"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -12,3 +16,14 @@ hidapi = "1.2.3"
 freetype-rs = "0.26.0"
 png = "0.16.7"
 servo-fontconfig = "0.5.1"
+
+[package.metadata.deb]
+license-file = ["LICENSE.txt"]
+depends = "$auto"
+section = "utility"
+priority = "optional"
+assets = [
+    ["target/release/led-name-badge", "usr/bin/", "755"],
+    ["LICENSE.txt", "usr/share/doc/led-name-badge/LICENSE.txt", "644"],
+    ["doc/99-led_badge.rules", "usr/share/doc/led-name-badge/99-led_badge.rules", "644"],
+]
