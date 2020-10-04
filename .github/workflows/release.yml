@@ -43,8 +43,8 @@ jobs:
         key: ${{ runner.os }}-stable-cargo-index-${{ hashFiles('**/Cargo.lock') }}
         restore-keys: |
           ${{ runner.os }}-stable-cargo-index-
-    - name: Install cargo-deb and cargo-rpm
-      run: cargo install cargo-deb cargo-rpm
+    - name: Install cargo-deb and cargo-generate-rpm
+      run: cargo install cargo-deb cargo-generate-rpm
     - name: Build
       run: cargo build --verbose --release
     # TODO Uncomment
@@ -78,14 +78,16 @@ jobs:
     #    asset_path: target/debian/led-name-badge_${{ steps.get_version.outputs.VERSION }}_amd64.deb
     #    asset_name: led-name-badge_${{ steps.get_version.outputs.VERSION }}_amd64.deb
     #    asset_content_type: application/vnd.debian.binary-package
-    #- name: Create an RPM Package
-    #  run: cargo rpm build
+    - name: Create a RPM Package
+      run: |
+        strip -s target/release/led-name-badge
+        cargo generate-rpm
     #- name: Upload an RPM Package to the Release Assets
     #  uses: actions/upload-release-asset@latest
     #  env:
     #    GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     #  with:
     #    upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps
-    #    asset_path: target/release/rpmbuild/RPMS/x86_64/led-name-badge-${{ steps.get_version.outputs.VERSION }}-1.x86_64.rpm
+    #    asset_path: target/generate-rpm/led-name-badge-${{ steps.get_version.outputs.VERSION }}-1.x86_64.rpm
     #    asset_name: led-name-badge-${{ steps.get_version.outputs.VERSION }}-1.x86_64.rpm
     #    asset_content_type: application/x-rpm
