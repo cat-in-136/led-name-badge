@@ -1,0 +1,83 @@
+on:
+  push:
+    # Sequence of patterns matched against refs/tags
+    tags:
+      - 'v*' # Push events to matching v*, i.e. v1.0, v20.15.10
+
+name: Create Release
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    name: Create Release
+    runs-on: ubuntu-latest
+
+    steps:
+    - run: sudo apt-get install libusb-1.0.0-dev libudev-dev libhidapi-dev
+    - uses: actions/checkout@v2
+    - name: Cache Cargo registry
+      uses: actions/cache@v2
+      env:
+        cache-name: cache-cargo-registry
+      with:
+        path: ~/.cargo/registry
+        key: ${{ runner.os }}-stable-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-stable-cargo-registry-
+    - name: Cache Cargo index
+      uses: actions/cache@v2
+      env:
+        cache-name: cache-cargo-index
+      with:
+        path: ~/.cargo/git
+        key: ${{ runner.os }}-stable-cargo-index-${{ hashFiles('**/Cargo.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-stable-cargo-index-
+    - name: Install cargo-deb and cargo-generate-rpm
+      run: cargo install cargo-deb cargo-generate-rpm
+    - name: Build
+      run: cargo build --verbose --release
+    - name: Create Release
+      id: create_release
+      uses: actions/create-release@latest
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # This token is provided by Actions, you do not need to create your own token
+      with:
+        tag_name: ${{ github.ref }}
+        release_name: Release ${{ github.ref }}
+        draft: false
+        prerelease: false
+    # Since Github actions (currently) doesn't provide a slugged version of the git tag we have to
+    # create it by ourselves. It is then made available to other steps in this job as a step.outputs
+    # variable
+    - name: Get the version (git tag)
+      id: get_version
+      run: |
+        echo ${GITHUB_REF/refs\/tags\/v/}
+        echo ::set-output name=VERSION::${GITHUB_REF/refs\/tags\/v/}
+    - name: Create a Debian Package
+      run: cargo deb
+    - name: Upload a Debian Package to the Release Assets
+      uses: actions/upload-release-asset@latest
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps
+        asset_path: target/debian/led-name-badge_${{ steps.get_version.outputs.VERSION }}_amd64.deb
+        asset_name: led-name-badge_${{ steps.get_version.outputs.VERSION }}_amd64.deb
+        asset_content_type: application/vnd.debian.binary-package
+    - name: Create an RPM Package
+      run: |
+        strip -s target/release/led-name-badge
+        cargo generate-rpm
+    - name: Upload an RPM Package to the Release Assets
+      uses: actions/upload-release-asset@latest
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps
+        asset_path: target/generate-rpm/led-name-badge-${{ steps.get_version.outputs.VERSION }}-1.x86_64.rpm
+        asset_name: led-name-badge-${{ steps.get_version.outputs.VERSION }}-1.x86_64.rpm
+        asset_content_type: application/x-rpm
