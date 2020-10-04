@@ -68,7 +68,7 @@ jobs:
         asset_path: target/debian/led-name-badge_${{ steps.get_version.outputs.VERSION }}_amd64.deb
         asset_name: led-name-badge_${{ steps.get_version.outputs.VERSION }}_amd64.deb
         asset_content_type: application/vnd.debian.binary-package
-    - name: Create a RPM Package
+    - name: Create an RPM Package
       run: |
         strip -s target/release/led-name-badge
         cargo generate-rpm
