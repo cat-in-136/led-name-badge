@@ -1,4 +1,3 @@
-use std::{error, fmt};
 use std::ffi::{CStr, CString};
 use std::os::raw::{c_char, c_int};
 use std::path::PathBuf;
@@ -11,29 +10,14 @@ use fontconfig_sys::fontconfig::{
 };
 
 /// Describes font finder error
-#[derive(Debug, Clone)]
+#[derive(thiserror::Error, Debug, Clone)]
 pub enum FontSelectorError {
     /// Caused by fontconfig internal error
+    #[error("Internal Error")]
     FontConfigError,
     /// Font Not Found
+    #[error("Font Not Found: {0}")]
     FontNotFound(String),
-}
-
-impl fmt::Display for FontSelectorError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            FontSelectorError::FontConfigError => f.write_str("Internal Error"),
-            FontSelectorError::FontNotFound(fonts) => {
-                f.write_fmt(format_args!("Font Not Found: {}", fonts))
-            }
-        }
-    }
-}
-
-impl error::Error for FontSelectorError {
-    fn source(&self) -> Option<&(dyn error::Error + 'static)> {
-        None
-    }
 }
 
 /// Wrapper of `FcPattern`

@@ -14,33 +14,14 @@ use crate::badge::device::BadgeType;
 mod arg_parser;
 mod badge;
 
-#[derive(Debug)]
+#[derive(thiserror::Error, Debug)]
 enum CliError {
-    ArgParseError(ArgParseError),
-    BadgeError(BadgeError),
+    #[error(transparent)]
+    ArgParseError(#[from] ArgParseError),
+    #[error(transparent)]
+    BadgeError(#[from] BadgeError),
+    #[error("{0}")]
     CliError(String),
-}
-
-impl From<ArgParseError> for CliError {
-    fn from(e: ArgParseError) -> Self {
-        CliError::ArgParseError(e)
-    }
-}
-
-impl From<BadgeError> for CliError {
-    fn from(e: BadgeError) -> Self {
-        CliError::BadgeError(e)
-    }
-}
-
-impl fmt::Display for CliError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        match self {
-            CliError::ArgParseError(e) => e.fmt(f),
-            CliError::BadgeError(e) => e.fmt(f),
-            CliError::CliError(str) => f.write_str(str.as_str()),
-        }
-    }
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]

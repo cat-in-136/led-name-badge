@@ -17,6 +17,7 @@ freetype-rs = "0.28.0"
 png = "0.16.8"
 fontconfig = "0.2.1"
 yeslogic-fontconfig-sys = "2.11.2"
+thiserror = "1"
 
 [package.metadata.deb]
 license-file = ["LICENSE.txt"]
