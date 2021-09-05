@@ -3,30 +3,12 @@ use std::ffi::{CStr, CString};
 use std::os::raw::{c_char, c_int};
 use std::path::PathBuf;
 use std::ptr::null_mut;
-use std::sync::Once;
 
-use fontconfig::fontconfig::{
-    FcChar8, FcConfig, FcConfigSubstitute, FcDefaultSubstitute, FcFontMatch,
-    FcInitLoadConfigAndFonts, FcMatchPattern, FcPattern, FcPatternAddInteger, FcPatternAddString,
-    FcPatternCreate, FcPatternDestroy, FcPatternGetInteger, FcPatternGetString, FcResultMatch,
-    FcResultNoMatch,
+use fontconfig::{Fontconfig, Pattern};
+use fontconfig_sys::fontconfig::{
+    FcChar8, FcPattern, FcPatternAddInteger, FcPatternAddString, FcPatternCreate, FcPatternDestroy,
+    FcPatternGetInteger, FcPatternGetString, FcResultMatch,
 };
-
-static INIT_FC: Once = Once::new();
-static mut FC_CONFIG: *mut FcConfig = null_mut();
-
-/// Initialize font finder.
-fn init() -> Result<(), FontSelectorError> {
-    INIT_FC.call_once(|| unsafe {
-        FC_CONFIG = FcInitLoadConfigAndFonts();
-    });
-
-    if unsafe { FC_CONFIG }.is_null() {
-        Err(FontSelectorError::FontConfigError)
-    } else {
-        Ok(())
-    }
-}
 
 /// Describes font finder error
 #[derive(Debug, Clone)]
@@ -56,23 +38,24 @@ impl error::Error for FontSelectorError {
 
 /// Wrapper of `FcPattern`
 #[derive(Debug)]
-pub struct FontPattern {
+struct FontPattern {
     pattern: *mut FcPattern,
 }
 
 impl FontPattern {
     /// Create a new pattern
     fn new() -> Result<Self, FontSelectorError> {
-        init()?;
-        Ok(Self {
-            pattern: unsafe { FcPatternCreate() },
-        })
+        let pattern = unsafe { FcPatternCreate() };
+        if pattern.is_null() {
+            Err(FontSelectorError::FontConfigError)
+        } else {
+            Ok(Self { pattern })
+        }
     }
 
     /// Create a new instance from raw pointer
-    fn from_pattern(pattern: *mut FcPattern) -> Result<Self, FontSelectorError> {
-        init()?;
-        Ok(Self { pattern })
+    fn from_pattern(pattern: *mut FcPattern) -> Self {
+        Self { pattern }
     }
 
     /// Add a string to the pattern i.e. wrapper function to `FcPatternAddString`
@@ -127,23 +110,6 @@ impl FontPattern {
             None
         }
     }
-
-    /// Get matcher pattern i.e. wrapper function to `FcFontMatch`
-    fn font_match(&mut self) -> Option<Self> {
-        let font_pat = unsafe {
-            FcConfigSubstitute(FC_CONFIG, self.pattern, FcMatchPattern);
-            FcDefaultSubstitute(self.pattern);
-
-            let mut _result = FcResultNoMatch;
-            FcFontMatch(FC_CONFIG, self.pattern, &mut _result)
-        };
-
-        if font_pat.is_null() {
-            None
-        } else {
-            Self::from_pattern(font_pat).ok()
-        }
-    }
 }
 
 #[test]
@@ -181,19 +147,6 @@ fn test_pattern_add_integer_get_integer() {
     assert_eq!(pattern.get_integer("size", 1), None);
 }
 
-#[test]
-fn test_font_match() {
-    let mut pattern = FontPattern::new().unwrap();
-    pattern.add_string("family", "Liberation Sans");
-    pattern.add_string("family", "Arial");
-
-    let font_pattern = pattern.font_match().unwrap();
-    let path = font_pattern.get_string("file", 0).unwrap();
-    assert!(std::path::PathBuf::from(path).exists());
-
-    assert_eq!(font_pattern.get_integer("index", 0), Some(0));
-}
-
 impl Drop for FontPattern {
     fn drop(&mut self) {
         unsafe { FcPatternDestroy(self.pattern) }
@@ -209,36 +162,37 @@ pub(crate) fn select_font(
     font_names: &[&str],
     font_size: Option<usize>,
 ) -> Result<(PathBuf, usize), FontSelectorError> {
+    let fc = Fontconfig::new().ok_or(FontSelectorError::FontConfigError)?;
     if font_names.is_empty() {
         return Err(FontSelectorError::FontNotFound("-".to_string()));
     }
 
-    let mut pattern = FontPattern::new()?;
+    let mut pattern = Pattern::new(&fc);
+    let mut pat = FontPattern::from_pattern(pattern.pat);
     for &font_name in font_names {
-        pattern.add_string("family", font_name);
+        pat.add_string("family", font_name);
     }
     if let Some(size) = font_size {
-        pattern.add_integer("size", size as i32);
+        pat.add_integer("size", size as i32);
     }
 
-    pattern
-        .font_match()
-        .and_then(|font_pattern| {
-            font_pattern.get_string("file", 0).map(|v| {
-                let index = font_pattern.get_integer("index", 0).unwrap_or(0);
-                (PathBuf::from(v), index as usize)
-            })
-        })
-        .ok_or_else(|| {
-            let x = font_names.join(", ");
-            FontSelectorError::FontNotFound(x)
-        })
+    let font_match = pattern.font_match();
+    if let (Some(filename), Some(index)) = (font_match.filename(), font_match.face_index()) {
+        Ok((PathBuf::from(filename), index as usize))
+    } else {
+        let x = font_names.join(", ");
+        Err(FontSelectorError::FontNotFound(x))
+    }
 }
 
 #[test]
 fn test_select_font() {
     assert!(matches!(
         select_font(&["Liberation Sans", "Arial"], None),
+        Ok((_, 0))
+    ));
+    assert!(matches!(
+        select_font(&["Liberation Sans", "Arial"], Some(24)),
         Ok((_, 0))
     ));
     assert!(select_font(&[], None).is_err());

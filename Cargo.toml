@@ -13,9 +13,10 @@ edition = "2018"
 
 [dependencies]
 hidapi = "1.2.3"
-freetype-rs = "0.26.0"
+freetype-rs = "0.28.0"
 png = "0.16.7"
-servo-fontconfig = "0.5.1"
+fontconfig = "0.2.1"
+yeslogic-fontconfig-sys = "2.11.2"
 
 [package.metadata.deb]
 license-file = ["LICENSE.txt"]
