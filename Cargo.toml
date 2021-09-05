@@ -12,10 +12,12 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-hidapi = "1.2.3"
-freetype-rs = "0.26.0"
-png = "0.16.7"
-servo-fontconfig = "0.5.1"
+hidapi = "1.2.6"
+freetype-rs = "0.28.0"
+png = "0.16.8"
+fontconfig = "0.2.1"
+yeslogic-fontconfig-sys = "2.11.2"
+thiserror = "1"
 
 [package.metadata.deb]
 license-file = ["LICENSE.txt"]

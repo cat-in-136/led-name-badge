@@ -1,6 +1,3 @@
-use core::fmt;
-use std::fmt::Formatter;
-
 // argument option
 #[derive(Debug, Clone)]
 pub(crate) struct Arg<ID: Copy> {
@@ -45,24 +42,12 @@ pub(crate) enum ArgValue<ID: Copy + PartialEq> {
 }
 
 /// Parse error
-#[derive(Debug, PartialEq)]
+#[derive(thiserror::Error, Debug, PartialEq)]
 pub(crate) enum ArgParseError {
+    #[error("\'-{name}\': parameter value missing")]
     ArgValueMissing { name: char },
+    #[error("\'-{argument}\': wrong argument")]
     ParseError { argument: String },
-}
-
-impl fmt::Display for ArgParseError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        use ArgParseError::*;
-        match self {
-            ArgValueMissing { name } => {
-                f.write_fmt(format_args!("\'-{}\': parameter value missing", name))
-            }
-            ParseError { argument } => {
-                f.write_fmt(format_args!("\'{}\': wrong argument", argument))
-            }
-        }
-    }
 }
 
 pub(crate) struct App<'a, ID: Copy + PartialEq> {
