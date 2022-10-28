@@ -1,8 +1,8 @@
 use std::path::Path;
 
-use freetype::{Error, Library};
 use freetype::face::LoadFlag;
 use freetype::freetype_sys::FT_Pos;
+use freetype::{Error, Library};
 
 #[derive(Debug)]
 struct Canvas {
@@ -115,7 +115,12 @@ pub(crate) fn render_text(
         let metrics = glyph.metrics();
         let pitch = bitmap.pitch() as usize;
         let rows = bitmap.rows() as usize;
-        let pen_start_x = pen_x + ftpos2pixel(metrics.horiBearingX);
+        let pen_start_x = pen_x
+            + if metrics.horiBearingX >= 0 {
+                ftpos2pixel(metrics.horiBearingX)
+            } else {
+                0
+            };
         let pen_start_y = if face_metrics.ascender == 0 {
             0 // some font does not have ascend.
         } else {
