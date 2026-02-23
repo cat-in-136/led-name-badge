@@ -10,7 +10,7 @@ fn format_io_error_path(path: &Option<String>) -> String {
     if let Some(p) = path {
         format!(" : {}", p)
     } else {
-        format!("")
+        String::new()
     }
 }
 

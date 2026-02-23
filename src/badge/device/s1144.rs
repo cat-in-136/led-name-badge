@@ -2,7 +2,7 @@ use std::mem;
 
 use hidapi::{HidApi, HidDevice};
 
-use crate::badge::{Badge, BADGE_MSG_FONT_HEIGHT, BadgeEffect, BadgeError, DISP_SIZE, N_MESSAGES};
+use crate::badge::{BADGE_MSG_FONT_HEIGHT, Badge, BadgeEffect, BadgeError, DISP_SIZE, N_MESSAGES};
 
 /// Vendor ID of the LED Badge
 const BADGE_VID: u16 = 0x0416;
@@ -58,7 +58,7 @@ impl BadgeHeader {
 
     /// Set brightness
     fn set_brightness(&mut self, br: u8) {
-        self.brightness = (br as u8) << 4;
+        self.brightness = br << 4;
     }
 
     /// Load from badge object
@@ -167,7 +167,7 @@ fn s1144_open() -> Result<HidDevice, BadgeError> {
 
     let device = api
         .open(BADGE_VID, BADGE_PID)
-        .map_err(|e| BadgeError::CouldNotOpenDevice(e))?;
+        .map_err(BadgeError::CouldNotOpenDevice)?;
 
     Ok(device)
 }

@@ -2,7 +2,7 @@ use std::mem;
 
 use hidapi::{HidApi, HidDevice};
 
-use crate::badge::{Badge, BADGE_MSG_FONT_HEIGHT, BadgeError, N_MESSAGES};
+use crate::badge::{BADGE_MSG_FONT_HEIGHT, Badge, BadgeError, N_MESSAGES};
 
 /// Vendor ID of the LED Badge
 const BADGE_VID: u16 = 0x0483;
@@ -43,7 +43,7 @@ impl Default for BadgeMessageOffsetLength {
 }
 
 /// Badge Protocol Configuration (second report to send)
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, Default)]
 #[repr(C)]
 struct BadgeMessageConfiguration {
     /// Frame/Speed/Blink/Effect for each message
@@ -60,7 +60,7 @@ impl BadgeMessageConfiguration {
         vec.extend_from_slice(&self.effect);
         vec.push(0x00u8);
         for i in 0..N_MESSAGES {
-            vec.extend_from_slice( unsafe {self.offset_length[i].as_slice() });
+            vec.extend_from_slice(unsafe { self.offset_length[i].as_slice() });
         }
         vec
     }
@@ -85,17 +85,6 @@ impl BadgeMessageConfiguration {
     }
 }
 
-
-
-impl Default for BadgeMessageConfiguration {
-    fn default() -> Self {
-        Self {
-            effect: Default::default(),
-            offset_length: Default::default(),
-        }
-    }
-}
-
 /// Open a LED badge device
 ///
 /// # Errors
@@ -116,7 +105,7 @@ fn b1248_open() -> Result<HidDevice, BadgeError> {
 
     let device = api
         .open(BADGE_VID, BADGE_PID)
-        .map_err(|e| BadgeError::CouldNotOpenDevice(e))?;
+        .map_err(BadgeError::CouldNotOpenDevice)?;
 
     Ok(device)
 }
@@ -172,8 +161,7 @@ pub fn b1248_send(badge: &Badge) -> Result<(), BadgeError> {
 
     // last report -- Dummy line
     {
-        let mut report_buf: Vec<u8> = Vec::with_capacity(REPORT_BUF_LEN);
-        report_buf.resize(REPORT_BUF_LEN, 0u8);
+        let report_buf: Vec<u8> = vec![0; REPORT_BUF_LEN];
         device.write(report_buf.as_slice())?;
     }
 

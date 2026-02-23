@@ -1,9 +1,9 @@
 use std::convert::TryFrom;
 use std::fmt;
 use std::fmt::{Debug, Formatter};
-use std::io::{Read, Write, BufRead, Seek};
 #[cfg(test)]
 use std::io::Cursor;
+use std::io::{BufRead, Read, Seek, Write};
 use std::mem;
 use std::ops::RangeInclusive;
 use std::path::PathBuf;
@@ -50,7 +50,7 @@ pub enum BadgeEffect {
 impl BadgeEffect {
     pub fn values() -> impl Iterator<Item = BadgeEffect> {
         (0..)
-            .map(|v| BadgeEffect::try_from(v))
+            .map(BadgeEffect::try_from)
             .take_while(|v| v.is_ok())
             .map(|v| v.unwrap())
     }
@@ -109,7 +109,7 @@ impl FromStr for BadgeEffect {
     fn from_str(value: &str) -> Result<Self, Self::Err> {
         BadgeEffect::values()
             .find(|&v| v.to_string().as_str() == value)
-            .map_or(Err(Self::Err::default()), |v| Ok(v))
+            .ok_or(())
     }
 }
 
@@ -178,12 +178,12 @@ impl Badge {
     ) -> Result<(), BadgeError> {
         if msg_num >= N_MESSAGES {
             Err(BadgeError::MessageNumberOutOfRange(msg_num))
-        } else if msg.len() == 0 {
+        } else if msg.is_empty() {
             Ok(()) // Do nothing
         } else {
             let pixel_height = BADGE_MSG_FONT_HEIGHT;
             let (font_path, font_index) = font_names
-                .get(0)
+                .first()
                 .and_then(|&v| {
                     let path = PathBuf::from(v);
                     if path.exists() {
@@ -278,7 +278,7 @@ impl Badge {
     ///
     /// If failed to write the data to the device, then an error is returned.\
     pub fn send(&mut self, badge_type: BadgeType) -> Result<(), BadgeError> {
-        device::device_send(badge_type, &self)
+        device::device_send(badge_type, self)
     }
 
     /// Write png data to the writer instead of badge
@@ -327,10 +327,7 @@ fn test_add_png_message() {
 
     let reader = Cursor::new(&generated_png_data);
     assert!(badge.add_png_message(N_MESSAGES - 1, reader).is_ok());
-    assert_eq!(
-        badge.messages[N_MESSAGES - 1].data,
-        &sample_data
-    );
+    assert_eq!(badge.messages[N_MESSAGES - 1].data, &sample_data);
 }
 
 #[test]

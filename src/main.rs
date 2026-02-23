@@ -6,8 +6,8 @@ use std::path::Path;
 use std::str::FromStr;
 
 use crate::arg_parser::{App, Arg, ArgParseError, ArgValue};
-use crate::badge::{Badge, BADGE_BRIGHTNESS_RANGE, BADGE_SPEED_RANGE, BadgeEffect, BadgeError};
 use crate::badge::device::BadgeType;
+use crate::badge::{BADGE_BRIGHTNESS_RANGE, BADGE_SPEED_RANGE, Badge, BadgeEffect, BadgeError};
 
 mod arg_parser;
 mod badge;
@@ -131,7 +131,7 @@ fn parse_arguments() -> Result<Box<[ArgValue<CliArgumentId>]>, ArgParseError> {
         println!(
             "{}\n\nUSAGE:\n    {} [OPTIONS]\n\nOPTIONS:\n{}",
             env!("CARGO_PKG_DESCRIPTION"),
-            std::env::args().nth(0).unwrap(),
+            std::env::args().next().unwrap(),
             app.help_option_message(),
         );
         std::process::exit(0);
@@ -149,7 +149,7 @@ fn main() {
         let mut msg_number = 0;
         let mut disable_send_to_badge = false;
         let mut font_family = Vec::with_capacity(1);
-        const DEFAULT_FONT_FAMILY: [&'static str; 2] = ["Liberation Sans", "Arial"];
+        const DEFAULT_FONT_FAMILY: [&str; 2] = ["Liberation Sans", "Arial"];
 
         for v in option.iter() {
             use ArgValue::*;
@@ -177,7 +177,7 @@ fn main() {
                         font_family.as_ref()
                     };
 
-                    badge.add_text_message(msg_number, &value.as_ref().unwrap(), font_names)?;
+                    badge.add_text_message(msg_number, value.as_ref().unwrap(), font_names)?;
                 }
                 Arg {
                     id: CliArgumentId::T,

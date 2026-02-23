@@ -61,8 +61,6 @@ impl<ID: Copy + PartialEq> App<'_, ID> {
         }
     }
 
-
-
     /// Find the arg object for given argument text
     fn find_matched_arg(&self, argument: &str) -> Option<&Arg<ID>> {
         self.options.iter().find(|&opt| opt.is_matched(argument))
@@ -84,7 +82,7 @@ impl<ID: Copy + PartialEq> App<'_, ID> {
                 let id = arg.id;
                 let short_name = arg.short_name;
 
-                if let Some(_) = arg.value_name {
+                if arg.value_name.is_some() {
                     // if this option takes a value
                     if let Some(val) = arguments_iter.next() {
                         values.push(ArgValue::Arg {
@@ -132,8 +130,6 @@ impl<ID: Copy + PartialEq> App<'_, ID> {
         text
     }
 }
-
-
 
 #[test]
 fn test_app_parse() {

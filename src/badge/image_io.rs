@@ -1,6 +1,6 @@
-use std::io::{Read, Write, BufRead, Seek};
 #[cfg(test)]
 use std::io::Cursor;
+use std::io::{BufRead, Read, Seek, Write};
 
 use png::{BitDepth, ColorType, Decoder, DecodingError, Encoder, EncodingError};
 
@@ -34,7 +34,7 @@ pub fn write_badge_message_to_png<W: Write>(
         let data_y = data_index % BADGE_MSG_FONT_HEIGHT;
         for i in 0usize..8usize {
             let (x, y) = (data_x + i, data_y);
-            let image_data_index = x + y * width as usize;
+            let image_data_index = x + y * width;
             if v & (0x80 >> i) as u8 != 0 {
                 image_data[image_data_index] = 0xFF;
             }
@@ -56,12 +56,12 @@ fn test_write_badge_message_to_png() {
     assert!(write_badge_message_to_png(empty_message_data, w.get_mut()).is_err());
 
     #[rustfmt::skip]
-        let sample_data: [u8; 22] = [
+    let sample_data: [u8; 22] = [
         0xFF, 0x00, 0xAA, 0x55, 0xFF, 0x00, 0xAA, 0x55, 0xFF, 0x00, 0xAA,
         0x00, 0xAA, 0x55, 0xFF, 0x00, 0xAA, 0x55, 0xFF, 0x00, 0xAA, 0x55,
     ];
     #[rustfmt::skip]
-        let sample_pixels: Vec<u8> = vec![
+    let sample_pixels: Vec<u8> = vec![
         0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,  0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00,
         0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00,  0x00, 0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00, 0xFF,
@@ -103,7 +103,9 @@ fn test_write_badge_message_to_png() {
     assert_eq!(png_pixels, sample_pixels);
 }
 
-pub fn read_png_to_badge_message<R: Read + BufRead + Seek>(reader: R) -> Result<Vec<u8>, BadgeImageReadError> {
+pub fn read_png_to_badge_message<R: Read + BufRead + Seek>(
+    reader: R,
+) -> Result<Vec<u8>, BadgeImageReadError> {
     let decoder = Decoder::new(reader);
     let mut reader = decoder.read_info()?;
     let info = reader.info().clone();
@@ -132,7 +134,7 @@ pub fn read_png_to_badge_message<R: Read + BufRead + Seek>(reader: R) -> Result<
     };
     let mut buf = vec![0; reader.output_buffer_size().unwrap()];
     reader.next_frame(&mut buf)?;
-    let mut data = vec![0; (info.width as usize + 7) / 8 * BADGE_MSG_FONT_HEIGHT];
+    let mut data = vec![0; (info.width as usize).div_ceil(8) * BADGE_MSG_FONT_HEIGHT];
     for (i, &v) in buf.iter().step_by(byte_per_pixel).enumerate() {
         let canvas_x = i % info.width as usize;
         let canvas_y = i / info.width as usize;
@@ -170,12 +172,12 @@ fn test_read_png_to_badge_message() {
     }
 
     #[rustfmt::skip]
-        let sample_data: [u8; 22] = [
+    let sample_data: [u8; 22] = [
         0xFF, 0x00, 0xAA, 0x55, 0xFF, 0x00, 0xAA, 0x55, 0xFF, 0x00, 0xAA,
         0x00, 0xAA, 0x55, 0xFF, 0x00, 0xAA, 0x55, 0xFF, 0x00, 0xAA, 0x55,
     ];
     #[rustfmt::skip]
-        let sample_pixels: Vec<u8> = vec![
+    let sample_pixels: Vec<u8> = vec![
         0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,  0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00,
         0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00,  0x00, 0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00, 0xFF,
