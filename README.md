@@ -14,7 +14,7 @@ but my tool uses fonts on the PC to render text using freetype and font-config.
 
 Dependencies:
 
-* Rust 1.42+
+* Rust 1.85.0+
 * pkg-config
 * libfreetype6
 * fontconfig
