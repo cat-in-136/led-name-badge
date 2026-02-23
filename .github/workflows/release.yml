@@ -1,5 +1,8 @@
 name: Create Release
 
+permissions:
+  contents: write
+
 on:
   push:
     tags:
@@ -43,20 +46,12 @@ jobs:
         cargo deb
         cargo generate-rpm
 
-    - name: Upload Debian Package
-      uses: svenstaro/upload-release-action@v2
-      with:
-        repo_token: ${{ secrets.GITHUB_TOKEN }}
-        file: target/debian/led-name-badge_${{ steps.get_version.outputs.VERSION }}_amd64.deb
-        asset_name: led-name-badge_${{ steps.get_version.outputs.VERSION }}_amd64.deb
-        tag: ${{ github.ref }}
-        overwrite: true
-
-    - name: Upload RPM Package
-      uses: svenstaro/upload-release-action@v2
-      with:
-        repo_token: ${{ secrets.GITHUB_TOKEN }}
-        file: target/generate-rpm/led-name-badge-${{ steps.get_version.outputs.VERSION }}-1.x86_64.rpm
-        asset_name: led-name-badge-${{ steps.get_version.outputs.VERSION }}-1.x86_64.rpm
-        tag: ${{ github.ref }}
-        overwrite: true
+    - name: Create Release
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        TAG_NAME=${GITHUB_REF#refs/tags/}
+        gh release create "$TAG_NAME" \
+          target/debian/*.deb target/generate-rpm/*.rpm \
+          --title "Release $TAG_NAME" \
+          --generate-notes
