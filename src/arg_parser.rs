@@ -55,16 +55,13 @@ pub(crate) struct App<'a, ID: Copy + PartialEq> {
 }
 
 impl<ID: Copy + PartialEq> App<'_, ID> {
-    pub(crate) fn new(options: &[Arg<ID>]) -> App<ID> {
+    pub(crate) fn new(options: &[Arg<ID>]) -> App<'_, ID> {
         App {
             options: Box::new(options),
         }
     }
 
-    /// Find the arg object for specific id.
-    pub(crate) fn find_arg(&self, id: ID) -> Option<Arg<ID>> {
-        self.options.iter().find(|&v| v.id == id).map(|v| v.clone())
-    }
+
 
     /// Find the arg object for given argument text
     fn find_matched_arg(&self, argument: &str) -> Option<&Arg<ID>> {
@@ -136,18 +133,7 @@ impl<ID: Copy + PartialEq> App<'_, ID> {
     }
 }
 
-#[test]
-fn test_app_find_arg() {
-    let options = vec![
-        Arg::new(0, 'a', None, "option a".to_string()),
-        Arg::new(1, 'b', Some("VAL".to_string()), "option b".to_string()),
-    ];
-    let app = App::new(&options);
 
-    assert_eq!(app.find_arg(0).unwrap().id, 0);
-    assert_eq!(app.find_arg(1).unwrap().id, 1);
-    assert!(app.find_arg(2).is_none());
-}
 
 #[test]
 fn test_app_parse() {

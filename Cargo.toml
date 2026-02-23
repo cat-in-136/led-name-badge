@@ -15,9 +15,9 @@ edition = "2021"
 hidapi = "1.2.6"
 freetype-rs = "0.28.0"
 png = "0.16.8"
-fontconfig = "0.2.1"
-yeslogic-fontconfig-sys = "2.11.2"
-thiserror = "1"
+fontconfig = "0.10.0"
+yeslogic-fontconfig-sys = "6.0.0"
+thiserror = "2"
 
 [package.metadata.deb]
 license-file = ["LICENSE.txt"]

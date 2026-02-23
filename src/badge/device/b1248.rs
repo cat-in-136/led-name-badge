@@ -2,7 +2,7 @@ use std::mem;
 
 use hidapi::{HidApi, HidDevice};
 
-use crate::badge::{Badge, BADGE_MSG_FONT_HEIGHT, BadgeError, BadgeEffect, N_MESSAGES};
+use crate::badge::{Badge, BADGE_MSG_FONT_HEIGHT, BadgeError, N_MESSAGES};
 
 /// Vendor ID of the LED Badge
 const BADGE_VID: u16 = 0x0483;
@@ -85,37 +85,7 @@ impl BadgeMessageConfiguration {
     }
 }
 
-#[test]
-fn test_badge_message_configuration_load() {
-    let mut msg_config = BadgeMessageConfiguration::default();
 
-    let mut badge = Badge::new().unwrap();
-    for i in 0..N_MESSAGES {
-        badge
-            .set_effect_pattern(
-                i,
-                BadgeEffect::try_from((N_MESSAGES - i - 1) as u8).unwrap(),
-            )
-            .unwrap();
-        badge.set_effect_blink(i, true).unwrap();
-        badge.set_effect_speed(i, (i + 1) as u8).unwrap();
-        badge.set_effect_frame(i, true).unwrap();
-
-        badge.messages[i]
-            .data
-            .extend_from_slice(&[i as u8; BADGE_MSG_FONT_HEIGHT]);
-    }
-    msg_config.load(&badge);
-    assert_eq!(
-        msg_config.effect,
-        [0x8F, 0x9E, 0xAD, 0xBC, 0xCB, 0xDA, 0xE9, 0xF8]
-    );
-    for i in 0..N_MESSAGES {
-        assert_eq!(msg_config.offset_length[i].header, 0x08);
-        assert_eq!(msg_config.offset_length[i].offset, i as u8);
-        assert_eq!(msg_config.offset_length[i].length, 1);
-    }
-}
 
 impl Default for BadgeMessageConfiguration {
     fn default() -> Self {
@@ -208,4 +178,42 @@ pub fn b1248_send(badge: &Badge) -> Result<(), BadgeError> {
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::badge::BadgeEffect;
+
+    #[test]
+    fn test_badge_message_configuration_load() {
+        let mut msg_config = BadgeMessageConfiguration::default();
+
+        let mut badge = Badge::new().unwrap();
+        for i in 0..N_MESSAGES {
+            badge
+                .set_effect_pattern(
+                    i,
+                    BadgeEffect::try_from((N_MESSAGES - i - 1) as u8).unwrap(),
+                )
+                .unwrap();
+            badge.set_effect_blink(i, true).unwrap();
+            badge.set_effect_speed(i, (i + 1) as u8).unwrap();
+            badge.set_effect_frame(i, true).unwrap();
+
+            badge.messages[i]
+                .data
+                .extend_from_slice(&[i as u8; BADGE_MSG_FONT_HEIGHT]);
+        }
+        msg_config.load(&badge);
+        assert_eq!(
+            msg_config.effect,
+            [0x8F, 0x9E, 0xAD, 0xBC, 0xCB, 0xDA, 0xE9, 0xF8]
+        );
+        for i in 0..N_MESSAGES {
+            assert_eq!(msg_config.offset_length[i].header, 0x08);
+            assert_eq!(msg_config.offset_length[i].offset, i as u8);
+            assert_eq!(msg_config.offset_length[i].length, 1);
+        }
+    }
 }
