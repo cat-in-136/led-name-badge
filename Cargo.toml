@@ -1,6 +1,6 @@
 [package]
 name = "led-name-badge"
-version = "0.1.1"
+version = "0.1.2"
 description = "USB LED name badge control tool"
 authors = ["@cat_in_136"]
 license = "MIT"
