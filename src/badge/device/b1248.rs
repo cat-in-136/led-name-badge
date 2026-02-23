@@ -27,7 +27,7 @@ impl BadgeMessageOffsetLength {
     /// Transmutes into a slice from the field.
     unsafe fn as_slice(&self) -> &[u8] {
         let view = self as *const _ as *const u8;
-        std::slice::from_raw_parts(view, mem::size_of::<Self>())
+        unsafe { std::slice::from_raw_parts(view, mem::size_of::<Self>()) }
     }
 }
 
