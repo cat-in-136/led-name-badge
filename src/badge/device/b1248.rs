@@ -1,9 +1,8 @@
-use std::convert::TryFrom;
 use std::mem;
 
 use hidapi::{HidApi, HidDevice};
 
-use crate::badge::{Badge, BADGE_MSG_FONT_HEIGHT, BadgeEffect, BadgeError, DISP_SIZE, N_MESSAGES};
+use crate::badge::{Badge, BADGE_MSG_FONT_HEIGHT, BadgeError, BadgeEffect, N_MESSAGES};
 
 /// Vendor ID of the LED Badge
 const BADGE_VID: u16 = 0x0483;
