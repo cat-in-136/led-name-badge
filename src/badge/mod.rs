@@ -1,9 +1,9 @@
 use std::convert::TryFrom;
 use std::fmt;
 use std::fmt::{Debug, Formatter};
-use std::io::{Read, Write};
 #[cfg(test)]
 use std::io::Cursor;
+use std::io::{BufRead, Read, Seek, Write};
 use std::mem;
 use std::ops::RangeInclusive;
 use std::path::PathBuf;
@@ -50,7 +50,7 @@ pub enum BadgeEffect {
 impl BadgeEffect {
     pub fn values() -> impl Iterator<Item = BadgeEffect> {
         (0..)
-            .map(|v| BadgeEffect::try_from(v))
+            .map(BadgeEffect::try_from)
             .take_while(|v| v.is_ok())
             .map(|v| v.unwrap())
     }
@@ -109,7 +109,7 @@ impl FromStr for BadgeEffect {
     fn from_str(value: &str) -> Result<Self, Self::Err> {
         BadgeEffect::values()
             .find(|&v| v.to_string().as_str() == value)
-            .map_or(Err(Self::Err::default()), |v| Ok(v))
+            .ok_or(())
     }
 }
 
@@ -178,12 +178,12 @@ impl Badge {
     ) -> Result<(), BadgeError> {
         if msg_num >= N_MESSAGES {
             Err(BadgeError::MessageNumberOutOfRange(msg_num))
-        } else if msg.len() == 0 {
+        } else if msg.is_empty() {
             Ok(()) // Do nothing
         } else {
             let pixel_height = BADGE_MSG_FONT_HEIGHT;
             let (font_path, font_index) = font_names
-                .get(0)
+                .first()
                 .and_then(|&v| {
                     let path = PathBuf::from(v);
                     if path.exists() {
@@ -201,7 +201,7 @@ impl Badge {
     }
 
     /// Add Png message
-    pub fn add_png_message<R: Read>(
+    pub fn add_png_message<R: Read + BufRead + Seek>(
         &mut self,
         msg_num: usize,
         reader: R,
@@ -278,7 +278,7 @@ impl Badge {
     ///
     /// If failed to write the data to the device, then an error is returned.\
     pub fn send(&mut self, badge_type: BadgeType) -> Result<(), BadgeError> {
-        device::device_send(badge_type, &self)
+        device::device_send(badge_type, self)
     }
 
     /// Write png data to the writer instead of badge
@@ -304,16 +304,16 @@ fn test_badge_new() {
 fn test_add_png_message() {
     let mut badge = Badge::new().unwrap();
 
-    let valid_8x11_png = vec![
-        0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d, 0x49, 0x48, 0x44,
-        0x52, 0x00, 0x00, 0x00, 0x08, 0x00, 0x00, 0x00, 0x0b, 0x01, 0x00, 0x00, 0x00, 0x00, 0x6a,
-        0xe0, 0xf1, 0x88, 0x00, 0x00, 0x00, 0x0c, 0x49, 0x44, 0x41, 0x54, 0x78, 0xda, 0x63, 0xf8,
-        0x8f, 0x0d, 0x02, 0x00, 0x78, 0x9d, 0x0a, 0xf6, 0xc1, 0x81, 0x34, 0x05, 0x00, 0x00, 0x00,
-        0x00, 0x49, 0x45, 0x4e, 0x44, 0xae, 0x42, 0x60, 0x82,
-    ];
+    let sample_data: [u8; BADGE_MSG_FONT_HEIGHT] = [0xff; BADGE_MSG_FONT_HEIGHT];
+    let mut generated_png_data = Vec::<u8>::new();
+    {
+        let mut w = Cursor::new(&mut generated_png_data);
+        image_io::write_badge_message_to_png(&sample_data, w.get_mut()).unwrap();
+    }
+
     let corrupted_data = vec![0; 1];
 
-    let reader = Cursor::new(&valid_8x11_png);
+    let reader = Cursor::new(&generated_png_data);
     assert!(matches!(
         badge.add_png_message(N_MESSAGES, reader),
         Err(BadgeError::MessageNumberOutOfRange(N_MESSAGES))
@@ -325,12 +325,9 @@ fn test_add_png_message() {
         Err(BadgeError::PngReadError(None, _))
     ));
 
-    let reader = Cursor::new(&valid_8x11_png);
+    let reader = Cursor::new(&generated_png_data);
     assert!(badge.add_png_message(N_MESSAGES - 1, reader).is_ok());
-    assert_eq!(
-        badge.messages[N_MESSAGES - 1].data,
-        &[0xff; BADGE_MSG_FONT_HEIGHT]
-    );
+    assert_eq!(badge.messages[N_MESSAGES - 1].data, &sample_data);
 }
 
 #[test]

@@ -10,7 +10,7 @@ fn format_io_error_path(path: &Option<String>) -> String {
     if let Some(p) = path {
         format!(" : {}", p)
     } else {
-        format!("")
+        String::new()
     }
 }
 
@@ -37,22 +37,40 @@ pub enum BadgeError {
     WrongBrightness,
     /// HID IO Error.
     #[error("Device IO Error")]
-    HidIo(#[from] HidError),
+    HidIo(HidError),
     /// Font Not Found
     #[error("Failed to find font: {0}")]
-    FontNotFound(#[from] FontSelectorError),
+    FontNotFound(FontSelectorError),
     /// Font Loading Error
     #[error("Failed to load font: {0}")]
-    FontLoading(#[from] FtError),
+    FontLoading(FtError),
     /// File IO Error
-    #[error("File IO Error: {1}{}", format_io_error_path(.0))]
+    #[error("File IO Error: {source_error}{path_info}", source_error = .1, path_info = format_io_error_path(.0))]
     FileIo(Option<String>, #[source] std::io::Error),
     /// Png Reading Error
-    #[error("Could not read the png file: {1}{}", format_io_error_path(.0))]
+    #[error("Could not read the png file: {source_error}{path_info}", source_error = .1, path_info = format_io_error_path(.0))]
     PngReadError(Option<String>, #[source] BadgeImageReadError),
-    #[error("Could not write the png file: {1}{}", format_io_error_path(.0))]
+    #[error("Could not write the png file: {source_error}{path_info}", source_error = .1, path_info = format_io_error_path(.0))]
     PngWriteError(Option<String>, #[source] BadgeImageWriteError),
     /// No data to write
     #[error("No data to write")]
     NoDataToWrite,
+}
+
+impl From<hidapi::HidError> for BadgeError {
+    fn from(err: hidapi::HidError) -> Self {
+        BadgeError::HidIo(err)
+    }
+}
+
+impl From<FontSelectorError> for BadgeError {
+    fn from(err: FontSelectorError) -> Self {
+        BadgeError::FontNotFound(err)
+    }
+}
+
+impl From<freetype::Error> for BadgeError {
+    fn from(err: freetype::Error) -> Self {
+        BadgeError::FontLoading(err)
+    }
 }

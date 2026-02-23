@@ -1,9 +1,8 @@
-use std::convert::TryFrom;
 use std::mem;
 
 use hidapi::{HidApi, HidDevice};
 
-use crate::badge::{Badge, BADGE_MSG_FONT_HEIGHT, BadgeEffect, BadgeError, DISP_SIZE, N_MESSAGES};
+use crate::badge::{BADGE_MSG_FONT_HEIGHT, Badge, BadgeError, N_MESSAGES};
 
 /// Vendor ID of the LED Badge
 const BADGE_VID: u16 = 0x0483;
@@ -28,7 +27,7 @@ impl BadgeMessageOffsetLength {
     /// Transmutes into a slice from the field.
     unsafe fn as_slice(&self) -> &[u8] {
         let view = self as *const _ as *const u8;
-        std::slice::from_raw_parts(view, mem::size_of::<Self>())
+        unsafe { std::slice::from_raw_parts(view, mem::size_of::<Self>()) }
     }
 }
 
@@ -44,7 +43,7 @@ impl Default for BadgeMessageOffsetLength {
 }
 
 /// Badge Protocol Configuration (second report to send)
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, Default)]
 #[repr(C)]
 struct BadgeMessageConfiguration {
     /// Frame/Speed/Blink/Effect for each message
@@ -61,7 +60,7 @@ impl BadgeMessageConfiguration {
         vec.extend_from_slice(&self.effect);
         vec.push(0x00u8);
         for i in 0..N_MESSAGES {
-            vec.extend_from_slice( unsafe {self.offset_length[i].as_slice() });
+            vec.extend_from_slice(unsafe { self.offset_length[i].as_slice() });
         }
         vec
     }
@@ -86,47 +85,6 @@ impl BadgeMessageConfiguration {
     }
 }
 
-#[test]
-fn test_badge_message_configuration_load() {
-    let mut msg_config = BadgeMessageConfiguration::default();
-
-    let mut badge = Badge::new().unwrap();
-    for i in 0..N_MESSAGES {
-        badge
-            .set_effect_pattern(
-                i,
-                BadgeEffect::try_from((N_MESSAGES - i - 1) as u8).unwrap(),
-            )
-            .unwrap();
-        badge.set_effect_blink(i, true).unwrap();
-        badge.set_effect_speed(i, (i + 1) as u8).unwrap();
-        badge.set_effect_frame(i, true).unwrap();
-
-        badge.messages[i]
-            .data
-            .extend_from_slice(&[i as u8; BADGE_MSG_FONT_HEIGHT]);
-    }
-    msg_config.load(&badge);
-    assert_eq!(
-        msg_config.effect,
-        [0x8F, 0x9E, 0xAD, 0xBC, 0xCB, 0xDA, 0xE9, 0xF8]
-    );
-    for i in 0..N_MESSAGES {
-        assert_eq!(msg_config.offset_length[i].header, 0x08);
-        assert_eq!(msg_config.offset_length[i].offset, i as u8);
-        assert_eq!(msg_config.offset_length[i].length, 1);
-    }
-}
-
-impl Default for BadgeMessageConfiguration {
-    fn default() -> Self {
-        Self {
-            effect: Default::default(),
-            offset_length: Default::default(),
-        }
-    }
-}
-
 /// Open a LED badge device
 ///
 /// # Errors
@@ -147,7 +105,7 @@ fn b1248_open() -> Result<HidDevice, BadgeError> {
 
     let device = api
         .open(BADGE_VID, BADGE_PID)
-        .map_err(|e| BadgeError::CouldNotOpenDevice(e))?;
+        .map_err(BadgeError::CouldNotOpenDevice)?;
 
     Ok(device)
 }
@@ -203,10 +161,47 @@ pub fn b1248_send(badge: &Badge) -> Result<(), BadgeError> {
 
     // last report -- Dummy line
     {
-        let mut report_buf: Vec<u8> = Vec::with_capacity(REPORT_BUF_LEN);
-        report_buf.resize(REPORT_BUF_LEN, 0u8);
+        let report_buf: Vec<u8> = vec![0; REPORT_BUF_LEN];
         device.write(report_buf.as_slice())?;
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::badge::BadgeEffect;
+
+    #[test]
+    fn test_badge_message_configuration_load() {
+        let mut msg_config = BadgeMessageConfiguration::default();
+
+        let mut badge = Badge::new().unwrap();
+        for i in 0..N_MESSAGES {
+            badge
+                .set_effect_pattern(
+                    i,
+                    BadgeEffect::try_from((N_MESSAGES - i - 1) as u8).unwrap(),
+                )
+                .unwrap();
+            badge.set_effect_blink(i, true).unwrap();
+            badge.set_effect_speed(i, (i + 1) as u8).unwrap();
+            badge.set_effect_frame(i, true).unwrap();
+
+            badge.messages[i]
+                .data
+                .extend_from_slice(&[i as u8; BADGE_MSG_FONT_HEIGHT]);
+        }
+        msg_config.load(&badge);
+        assert_eq!(
+            msg_config.effect,
+            [0x8F, 0x9E, 0xAD, 0xBC, 0xCB, 0xDA, 0xE9, 0xF8]
+        );
+        for i in 0..N_MESSAGES {
+            assert_eq!(msg_config.offset_length[i].header, 0x08);
+            assert_eq!(msg_config.offset_length[i].offset, i as u8);
+            assert_eq!(msg_config.offset_length[i].length, 1);
+        }
+    }
 }

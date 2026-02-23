@@ -24,7 +24,7 @@ impl Canvas {
 
 /// Convert the canvas data into the led badge message data.
 fn canvas2vec(canvas: &Canvas) -> Vec<u8> {
-    let data_width = (canvas.width + 7) / 8;
+    let data_width = canvas.width.div_ceil(8);
     let data_height = canvas.height;
 
     let mut data = vec![0; data_width * data_height];
@@ -125,9 +125,7 @@ pub(crate) fn render_text(
             0 // some font does not have ascend.
         } else {
             ftpos2pixel(
-                pixel2ftpos(pixel_height as usize)
-                    - (-face_metrics.descender)
-                    - metrics.horiBearingY,
+                pixel2ftpos(pixel_height) - (-face_metrics.descender) - metrics.horiBearingY,
             )
         };
 
