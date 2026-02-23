@@ -12,9 +12,9 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-hidapi = "1.2.6"
-freetype-rs = "0.28.0"
-png = "0.16.8"
+hidapi = "2.6"
+freetype-rs = "0.38.0"
+png = "0.18.1"
 fontconfig = "0.10.0"
 yeslogic-fontconfig-sys = "6.0.0"
 thiserror = "2"

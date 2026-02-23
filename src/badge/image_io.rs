@@ -1,5 +1,4 @@
-use core::fmt::Debug;
-use std::io::{Read, Write};
+use std::io::{Read, Write, BufRead, Seek};
 #[cfg(test)]
 use std::io::Cursor;
 
@@ -90,7 +89,8 @@ fn test_write_badge_message_to_png() {
 
     let r = Cursor::new(&png_data);
     let decoder = Decoder::new(r);
-    let (info, mut reader) = decoder.read_info().unwrap();
+    let mut reader = decoder.read_info().unwrap();
+    let info = reader.info().clone();
     assert_eq!(
         (info.width, info.height),
         (8 * 2, BADGE_MSG_FONT_HEIGHT as u32)
@@ -103,9 +103,10 @@ fn test_write_badge_message_to_png() {
     assert_eq!(png_pixels, sample_pixels);
 }
 
-pub fn read_png_to_badge_message<R: Read>(reader: R) -> Result<Vec<u8>, BadgeImageReadError> {
+pub fn read_png_to_badge_message<R: Read + BufRead + Seek>(reader: R) -> Result<Vec<u8>, BadgeImageReadError> {
     let decoder = Decoder::new(reader);
-    let (info, mut reader) = decoder.read_info()?;
+    let mut reader = decoder.read_info()?;
+    let info = reader.info().clone();
 
     if info.bit_depth != BitDepth::Eight {
         return Err(BadgeImageReadError::UnsupportedPngError(
@@ -124,12 +125,12 @@ pub fn read_png_to_badge_message<R: Read>(reader: R) -> Result<Vec<u8>, BadgeIma
 
     let byte_per_pixel = match info.color_type {
         ColorType::Grayscale => 1,
-        ColorType::RGB => 3,
+        ColorType::Rgb => 3,
         ColorType::Indexed => 3,
         ColorType::GrayscaleAlpha => 2,
-        ColorType::RGBA => 4,
+        ColorType::Rgba => 4,
     };
-    let mut buf = vec![0; info.buffer_size()];
+    let mut buf = vec![0; reader.output_buffer_size().unwrap()];
     reader.next_frame(&mut buf)?;
     let mut data = vec![0; (info.width as usize + 7) / 8 * BADGE_MSG_FONT_HEIGHT];
     for (i, &v) in buf.iter().step_by(byte_per_pixel).enumerate() {
@@ -217,7 +218,7 @@ fn test_read_png_to_badge_message() {
         .iter()
         .flat_map(|&v| vec![v, v, v])
         .collect::<Vec<u8>>();
-    let png_data = create_png_data(16, ColorType::RGB, BitDepth::Eight, &sample_pixels_rgb);
+    let png_data = create_png_data(16, ColorType::Rgb, BitDepth::Eight, &sample_pixels_rgb);
     let r = Cursor::new(&png_data);
     assert_eq!(
         read_png_to_badge_message(r).unwrap().as_slice(),
@@ -229,7 +230,7 @@ fn test_read_png_to_badge_message() {
         .iter()
         .flat_map(|&v| vec![v, v, v, 255])
         .collect::<Vec<u8>>();
-    let png_data = create_png_data(16, ColorType::RGBA, BitDepth::Eight, &sample_pixels_rgba);
+    let png_data = create_png_data(16, ColorType::Rgba, BitDepth::Eight, &sample_pixels_rgba);
     let r = Cursor::new(&png_data);
     assert_eq!(
         read_png_to_badge_message(r).unwrap().as_slice(),
